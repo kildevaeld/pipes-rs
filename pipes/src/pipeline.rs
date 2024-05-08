@@ -1,10 +1,10 @@
-use std::task::Poll;
+use core::task::Poll;
 
 use async_stream::try_stream;
 use futures::{
     ready,
-    stream::{BoxStream, FusedStream, FuturesUnordered},
-    Future, Stream, StreamExt, TryFuture, TryStream, TryStreamExt,
+    stream::{BoxStream, FuturesUnordered},
+    Stream, StreamExt, TryFuture, TryStream,
 };
 use pin_project_lite::pin_project;
 
@@ -12,9 +12,7 @@ use crate::{
     and::And,
     context::Context,
     error::Error,
-    func::Func,
     source::Source,
-    unit::Unit,
     work::{NoopWork, Work},
 };
 
@@ -39,14 +37,6 @@ impl<S, W> Pipeline<S, W> {
             work: And::new(self.work, work),
         }
     }
-
-    // pub fn dest<T: Func<W::Output>>(self, dest: T) -> Dest<Self, T>
-    // where
-    //     S: Source,
-    //     W: Work<S::Item>,
-    // {
-    //     Dest::new(self, dest)
-    // }
 
     #[cfg(feature = "tokio")]
     pub fn concurrent(self) -> ConcurrentPipeline<S, W> {
@@ -93,9 +83,9 @@ where
 {
     type Item = Result<W::Output, Error>;
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
         let mut this = self.project();
 
         Poll::Ready(loop {
@@ -119,17 +109,6 @@ pub struct ConcurrentPipeline<S, W> {
     work: W,
 }
 
-// #[cfg(feature = "tokio")]
-// impl<S, W> ConcurrentPipeline<S, W> {
-//     pub fn dest<T: Func<W::Output>>(self, dest: T) -> Dest<Self, T>
-//     where
-//         S: Source,
-//         W: Work<S::Item>,
-//     {
-//         Dest::new(self, dest)
-//     }
-// }
-
 #[cfg(feature = "tokio")]
 impl<S, W> Source for ConcurrentPipeline<S, W>
 where
@@ -145,7 +124,7 @@ where
     type Stream = BoxStream<'static, Result<Self::Item, Error>>;
 
     fn call(self) -> Self::Stream {
-        Box::pin(try_stream! {
+        alloc::boxed::Box::pin(try_stream! {
 
             let stream = self.source.call();
             futures::pin_mut!(stream);

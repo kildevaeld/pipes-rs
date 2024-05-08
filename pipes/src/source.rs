@@ -1,6 +1,6 @@
-use std::task::Poll;
+use core::task::Poll;
 
-use futures::{ready, SinkExt, Stream};
+use futures::{ready, Stream};
 use pin_project_lite::pin_project;
 
 use crate::{and::And, dest::Dest, error::Error, SourceUnit, Unit};
@@ -11,9 +11,9 @@ pub trait Source {
     fn call(self) -> Self::Stream;
 }
 
-impl<T> Source for Vec<Result<T, Error>> {
+impl<T> Source for alloc::vec::Vec<Result<T, Error>> {
     type Item = T;
-    type Stream = futures::stream::Iter<std::vec::IntoIter<Result<T, Error>>>;
+    type Stream = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>;
     fn call(self) -> Self::Stream {
         futures::stream::iter(self)
     }
@@ -82,9 +82,9 @@ impl<T> Stream for AsyncChannelStream<T> {
     type Item = Result<T, Error>;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
         let this = self.project();
         Poll::Ready(ready!(this.rx.poll_next(cx)).map(Ok))
     }
@@ -113,9 +113,9 @@ impl<T> Stream for TokioChannelStream<T> {
     type Item = Result<T, Error>;
 
     fn poll_next(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
         let mut this = self.project();
         Poll::Ready(ready!(this.rx.poll_recv(cx)).map(Ok))
     }
@@ -129,6 +129,7 @@ where
     rx: tokio::sync::mpsc::Receiver<S::Item>,
 }
 
+#[cfg(feature = "tokio")]
 impl<S> SpawnSource<S>
 where
     S: Source + Send + 'static,
@@ -145,6 +146,7 @@ where
     }
 }
 
+#[cfg(feature = "tokio")]
 impl<S> Source for SpawnSource<S>
 where
     S: Source,

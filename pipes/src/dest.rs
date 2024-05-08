@@ -1,6 +1,9 @@
-use std::task::Poll;
+use core::task::Poll;
 
-use futures::{future::BoxFuture, ready, Future, TryFuture};
+use alloc::boxed::Box;
+#[cfg(feature = "tokio")]
+use futures::future::BoxFuture;
+use futures::{ready, Future, TryFuture};
 use pin_project_lite::pin_project;
 
 use crate::Error;
@@ -48,9 +51,9 @@ where
 {
     type Output = Result<U::Ok, Error>;
     fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
         let this = self.project();
         match ready!(this.future.try_poll(cx)) {
             Ok(ret) => Poll::Ready(Ok(ret)),

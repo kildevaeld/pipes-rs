@@ -1,7 +1,7 @@
 use crate::{context::Context, error::Error, source::Source, work::Work, Unit};
+use core::task::Poll;
 use futures::{ready, Future};
 use pin_project_lite::pin_project;
-use std::task::Poll;
 
 pub struct And<T1, T2> {
     left: T1,
@@ -85,9 +85,9 @@ where
     type Output = Result<T2::Output, Error>;
 
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
         loop {
             let this = self.as_mut().project();
 
@@ -134,7 +134,10 @@ where
 {
     type Output = ();
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
         let this = self.project();
         ready!(this.future.poll(cx));
         Poll::Ready(())

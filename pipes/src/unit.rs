@@ -3,7 +3,7 @@ use core::task::Poll;
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{dest::Dest, Error, Source};
+use crate::{dest::Dest, Source};
 
 pub trait Unit {
     type Future<'a>: Future<Output = ()>
@@ -56,7 +56,10 @@ where
 {
     type Output = ();
 
-    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
         let mut this = self.project();
 
         Poll::Ready(loop {

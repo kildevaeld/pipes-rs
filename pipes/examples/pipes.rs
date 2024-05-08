@@ -1,11 +1,9 @@
-use futures::TryStreamExt;
-use mime::APPLICATION_JSON;
 use pipes::{
     dest_fn,
     http::{get, HttpWork},
-    work_fn, Body, Error, Package, Pipeline, Source, SourceExt, Unit, WorkExt,
+    work_fn, Error, Package, Pipeline, SourceExt, Unit, WorkExt,
 };
-use reqwest::{Client, Method, Request, Url};
+use reqwest::Client;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

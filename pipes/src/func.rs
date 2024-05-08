@@ -1,7 +1,4 @@
-use futures::{future::BoxFuture, TryFuture};
-use pin_project_lite::pin_project;
-
-use crate::Error;
+use futures::TryFuture;
 
 pub trait Func<T> {
     type Output<'a>

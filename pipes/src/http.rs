@@ -1,21 +1,15 @@
-use std::{pin::Pin, task::Poll};
+use core::{pin::Pin, task::Poll};
 
-use async_stream::try_stream;
+use alloc::string::ToString;
 use bytes::Bytes;
-use futures::{
-    future::BoxFuture,
-    pin_mut,
-    stream::{BoxStream, FuturesUnordered, StreamExt},
-    Future, FutureExt, Stream, TryStreamExt,
-};
+use futures::{future::BoxFuture, stream::StreamExt, Future, FutureExt, Stream};
 use http_body::Body as _;
 use mime::Mime;
 use pin_project_lite::pin_project;
 use relative_path::RelativePathBuf;
 use reqwest::{Client, Method, Request, Response, Url};
-use tokio::select;
 
-use crate::{Body, Error, IntoPackage, Package, Source, Work};
+use crate::{Body, Error, IntoPackage, Package, Work};
 
 pub fn get(url: &str) -> Result<Request, Error> {
     Ok(Request::new(
@@ -30,9 +24,9 @@ impl Stream for BodyStream {
     type Item = Result<Bytes, Error>;
 
     fn poll_next(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Option<Self::Item>> {
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Option<Self::Item>> {
         loop {
             return match futures::ready!(Pin::new(&mut self.0).poll_frame(cx)) {
                 Some(Ok(frame)) => {
@@ -89,7 +83,7 @@ pin_project! {
 impl Future for ResponseIntoPackageFuture {
     type Output = Result<Package, Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let Some(resp) = this.resp.take() else {
             panic!("poll after done")

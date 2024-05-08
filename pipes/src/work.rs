@@ -1,12 +1,15 @@
-use std::task::Poll;
-
+use alloc::boxed::Box;
+use core::task::Poll;
 use futures::{
     future::{BoxFuture, LocalBoxFuture},
     ready, Future, FutureExt, TryFuture,
 };
 use pin_project_lite::pin_project;
 
-use crate::{context::Context, error::Error, IntoPackage, Package};
+use crate::{context::Context, error::Error};
+
+#[cfg(feature = "std")]
+use super::{IntoPackage, Package};
 
 pub trait Work<T> {
     type Output;
@@ -33,6 +36,7 @@ pub trait WorkExt<T>: Work<T> {
         Box::new(LocalBoxedWorker(self))
     }
 
+    #[cfg(feature = "std")]
     fn into_package(self) -> IntoPackageWork<Self>
     where
         Self: Sized,
@@ -50,7 +54,7 @@ pub struct NoopWork;
 impl<R> Work<R> for NoopWork {
     type Output = R;
     type Future = futures::future::Ready<Result<R, Error>>;
-    fn call(&self, ctx: Context, package: R) -> Self::Future {
+    fn call(&self, _ctx: Context, package: R) -> Self::Future {
         futures::future::ready(Ok(package))
     }
 }
@@ -91,9 +95,9 @@ where
 {
     type Output = Result<U::Ok, Error>;
     fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Self::Output> {
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Self::Output> {
         let this = self.project();
         match ready!(this.future.try_poll(cx)) {
             Ok(ret) => Poll::Ready(Ok(ret)),
@@ -141,11 +145,13 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 #[derive(Debug, Clone, Copy)]
 pub struct IntoPackageWork<T> {
     worker: T,
 }
 
+#[cfg(feature = "std")]
 impl<T, R> Work<R> for IntoPackageWork<T>
 where
     T: Work<R>,
@@ -162,6 +168,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 pin_project! {
     #[project = Proj]
     pub enum IntoPackageWorkFuture<T> where T: TryFuture, T::Ok: IntoPackage {
@@ -177,6 +184,7 @@ pin_project! {
     }
 }
 
+#[cfg(feature = "std")]
 impl<T> Future for IntoPackageWorkFuture<T>
 where
     T: TryFuture,
@@ -186,8 +194,8 @@ where
     type Output = Result<Package, Error>;
 
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        mut self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
         loop {
             let this = self.as_mut().project();
