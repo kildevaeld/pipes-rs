@@ -1,5 +1,8 @@
+use std::path::PathBuf;
+
 use pipes::{
     dest_fn,
+    fs::FsWork,
     http::{get, HttpWork},
     work_fn, Error, Package, Pipeline, SourceExt, Unit, WorkExt,
 };
@@ -15,7 +18,11 @@ async fn main() {
     ])
     .pipe(HttpWork::new(Client::new()).into_package())
     .concurrent()
-    .spawn();
+    .spawn()
+    .and(
+        Pipeline::new(vec![Result::<_, Error>::Ok(PathBuf::from("./Cargo.toml"))])
+            .pipe(FsWork.into_package()),
+    );
 
     let pipeline = Pipeline::new(p2)
         .pipe(work_fn(|ctx, package: Package| async move {

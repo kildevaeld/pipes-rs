@@ -1,7 +1,7 @@
-use alloc::string::String;
-use bytes::Bytes;
-use futures::{stream::BoxStream, Future};
+use bytes::{BufMut, Bytes, BytesMut};
+use futures::{stream::BoxStream, Future, TryStreamExt};
 use mime::Mime;
+use relative_path::RelativePathBuf;
 
 use crate::Error;
 
@@ -12,8 +12,26 @@ pub enum Body {
 }
 
 impl Body {
-    pub async fn bytes(self) -> Bytes {
-        todo!()
+    pub async fn bytes(mut self) -> Result<Bytes, Error> {
+        self.load().await?;
+        match self {
+            Self::Bytes(bs) => Ok(bs),
+            _ => Ok(Bytes::new()),
+        }
+    }
+
+    pub async fn load(&mut self) -> Result<(), Error> {
+        if let Body::Stream(stream) = self {
+            let mut buf = BytesMut::new();
+
+            while let Some(next) = stream.try_next().await.unwrap() {
+                buf.put(next);
+            }
+
+            *self = Body::Bytes(buf.freeze());
+        }
+
+        Ok(())
     }
 }
 
@@ -21,16 +39,16 @@ impl Body {
 pub struct Meta {}
 
 pub struct Package {
-    name: String,
+    name: RelativePathBuf,
     mime: Mime,
     content: Body,
     meta: Meta,
 }
 
 impl Package {
-    pub fn new(name: String, mime: Mime, body: impl Into<Body>) -> Package {
+    pub fn new(name: impl Into<RelativePathBuf>, mime: Mime, body: impl Into<Body>) -> Package {
         Package {
-            name,
+            name: name.into(),
             mime,
             content: body.into(),
             meta: Meta::default(),
@@ -38,7 +56,15 @@ impl Package {
     }
 
     pub fn name(&self) -> &str {
-        &self.name
+        self.name.as_str()
+    }
+
+    pub fn mime(&self) -> &Mime {
+        &self.mime
+    }
+
+    pub fn content(&self) -> &Body {
+        &self.content
     }
 }
 
