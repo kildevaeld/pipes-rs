@@ -5,12 +5,18 @@ edition = "2021"
 
 [dependencies]
 pipes = { path = "../pipes", features = ["std"] }
-image = { version = "0.25" }
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+    "webp",
+] }
 mime = { version = "0.3" }
 relative-path = { version = "1" }
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["rt"] }
 bytes = { version = "1", default-features = false }
+pin-project-lite = { version = "0.2" }
+webp = { version = "0.3" }
 
 
 [dev-dependencies]

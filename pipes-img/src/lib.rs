@@ -2,25 +2,35 @@ use std::{
     future::Future,
     io::{BufWriter, Cursor},
     sync::Arc,
+    task::Poll,
 };
 
-use futures::future::BoxFuture;
+use futures::{future::BoxFuture, ready};
+use image::DynamicImage;
+use pin_project_lite::pin_project;
 use pipes::{work_fn, Body, Error, Package, Work};
 use relative_path::RelativePathBuf;
 
 #[derive(Debug, Clone)]
 pub enum Operation {
     Resize { width: u32, height: u32 },
+    Blur { sigma: f32 },
 }
 
-pub fn imageop(
-    ops: Vec<Operation>,
-) -> impl Work<Image, Output = Image, Future = impl Future + Send> + Sync + Send + Clone {
-    let ops = Arc::new(ops);
-    work_fn(move |_ctx, image: Image| {
-        let ops = ops.clone();
-        async move {
-            tokio::task::spawn_blocking(move || {
+pub fn imageop(ops: Vec<Operation>) -> ImageOp {
+    ImageOp(Arc::new(ops))
+}
+
+#[derive(Debug, Clone)]
+pub struct ImageOp(Arc<Vec<Operation>>);
+
+impl Work<Image> for ImageOp {
+    type Output = Image;
+    type Future = SpawnBlockFuture<Image>;
+    fn call(&self, ctx: pipes::Context, image: Image) -> Self::Future {
+        let ops = self.0.clone();
+        SpawnBlockFuture {
+            future: tokio::task::spawn_blocking(move || {
                 let mut img = image.image;
 
                 for op in &*ops {
@@ -28,6 +38,7 @@ pub fn imageop(
                         Operation::Resize { width, height } => {
                             img.resize(*width, *height, ::image::imageops::FilterType::Nearest)
                         }
+                        Operation::Blur { sigma } => img.blur(*sigma),
                     };
                 }
 
@@ -35,11 +46,9 @@ pub fn imageop(
                     path: image.path,
                     image: img,
                 })
-            })
-            .await
-            .map_err(Error::new)?
+            }),
         }
-    })
+    }
 }
 
 pub fn filter(
@@ -55,28 +64,107 @@ pub fn filter(
     })
 }
 
-pub fn save(
-    format: image::ImageFormat,
-) -> impl Work<Image, Output = Package, Future = impl Future + Send> + Sync + Send + Copy {
-    work_fn(move |_ctx, img: Image| async move {
-        tokio::task::spawn_blocking(move || {
-            let mut bytes = Vec::default();
-            let mut buf_writer = BufWriter::new(Cursor::new(&mut bytes));
-            img.image
-                .write_to(&mut buf_writer, format)
-                .map_err(Error::new)?;
+pub fn save(format: Format) -> Save {
+    Save { format }
+}
 
-            drop(buf_writer);
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Format {
+    Jpg(u8),
+    Png,
+    Webp { quality: f32, lossless: bool },
+}
 
-            let path = img.path.with_extension("jpg");
+impl Format {
+    pub fn encode(&self, img: &DynamicImage) -> Result<Vec<u8>, Error> {
+        let mut bytes = Vec::default();
+        let buf_writer = BufWriter::new(Cursor::new(&mut bytes));
+        match self {
+            Format::Jpg(q) => {
+                let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(buf_writer, *q);
+                img.write_with_encoder(encoder).map_err(Error::new)?
+            }
+            Format::Png => {
+                let encoder = image::codecs::png::PngEncoder::new(buf_writer);
+                img.write_with_encoder(encoder).map_err(Error::new)?;
+            }
+            Format::Webp { quality, lossless } => {
+                let encoder = webp::Encoder::from_image(img).map_err(Error::new)?;
+                let mem = encoder
+                    .encode_simple(*lossless, *quality)
+                    .map_err(|_| Error::new("could not encode webp"))?;
 
-            let pkg = Package::new(path, mime::IMAGE_JPEG, Body::Bytes(bytes.into()));
+                return Ok(mem.to_vec());
+            }
+        }
 
-            Result::<_, Error>::Ok(pkg)
-        })
-        .await
-        .map_err(Error::new)?
-    })
+        Ok(bytes)
+    }
+
+    pub fn ext(&self) -> &str {
+        match self {
+            Self::Jpg(_) => "jpeg",
+            Self::Png => "png",
+            Self::Webp { .. } => "webp",
+        }
+    }
+
+    pub fn mime(&self) -> mime::Mime {
+        match self {
+            Self::Jpg(_) => mime::IMAGE_JPEG,
+            Self::Png => mime::IMAGE_PNG,
+            Self::Webp { .. } => {
+                let mime: mime::Mime = "image/webp".parse().expect("webp");
+                mime
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Save {
+    format: Format,
+}
+
+impl Work<Image> for Save {
+    type Output = Package;
+    type Future = SpawnBlockFuture<Package>;
+    fn call(&self, _ctx: pipes::Context, img: Image) -> Self::Future {
+        let format = self.format;
+        SpawnBlockFuture {
+            future: tokio::task::spawn_blocking(move || {
+                let bytes = format.encode(&img.image)?;
+                let path = img.path.with_extension(format.ext());
+
+                let pkg = Package::new(path, format.mime(), Body::Bytes(bytes.into()));
+
+                Result::<_, Error>::Ok(pkg)
+            }),
+        }
+    }
+}
+
+pin_project! {
+    pub struct SpawnBlockFuture<T> {
+        #[pin]
+        future: tokio::task::JoinHandle<Result<T, Error>>
+    }
+}
+
+impl<T> Future for SpawnBlockFuture<T> {
+    type Output = Result<T, Error>;
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Self::Output> {
+        let this = self.project();
+
+        match ready!(this.future.poll(cx)) {
+            Ok(ret) => Poll::Ready(ret),
+            Err(err) => Poll::Ready(Err(Error::new(err))),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -85,6 +173,7 @@ pub struct Image {
     image: image::DynamicImage,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct ImageWork;
 
 impl Work<Package> for ImageWork {

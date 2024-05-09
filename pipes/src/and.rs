@@ -3,6 +3,7 @@ use core::task::Poll;
 use futures::{ready, Future};
 use pin_project_lite::pin_project;
 
+#[derive(Debug, Clone, Copy)]
 pub struct And<T1, T2> {
     left: T1,
     right: T2,
