@@ -92,6 +92,7 @@ impl<T: Send + 'static> Dest<T> for async_channel::Sender<T> {
 }
 
 #[cfg(feature = "tokio")]
+#[derive(Debug, Clone)]
 pub struct FsDest {
     path: std::path::PathBuf,
 }
