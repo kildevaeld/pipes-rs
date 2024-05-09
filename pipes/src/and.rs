@@ -15,14 +15,15 @@ impl<T1, T2> And<T1, T2> {
     }
 }
 
-impl<T1, T2, R> Work<R> for And<T1, T2>
+impl<T1, T2, C, R> Work<C, R> for And<T1, T2>
 where
-    T1: Work<R>,
-    T2: Work<T1::Output> + Clone,
+    T1: Work<C, R>,
+    T2: Work<C, T1::Output> + Clone,
+    C: Clone,
 {
     type Output = T2::Output;
-    type Future = AndWorkFuture<T1, T2, R>;
-    fn call(&self, ctx: Context, package: R) -> Self::Future {
+    type Future = AndWorkFuture<T1, T2, C, R>;
+    fn call(&self, ctx: C, package: R) -> Self::Future {
         AndWorkFuture::Left {
             future: self.left.call(ctx.clone(), package),
             next: Some(self.right.clone()),
@@ -31,44 +32,46 @@ where
     }
 }
 
-impl<T1, T2> Source for And<T1, T2>
+impl<T1, T2, C> Source<C> for And<T1, T2>
 where
-    T1: Source,
-    T2: Source<Item = T1::Item>,
+    T1: Source<C>,
+    T2: Source<C, Item = T1::Item>,
+    C: Clone,
 {
     type Item = T1::Item;
     type Stream<'a> = futures::stream::Select<T1::Stream<'a>, T2::Stream<'a>> where T1: 'a, T2: 'a;
-    fn call<'a>(self) -> Self::Stream<'a> {
-        futures::stream::select(self.left.call(), self.right.call())
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+        futures::stream::select(self.left.call(ctx.clone()), self.right.call(ctx))
     }
 }
 
-impl<T1, T2> Unit for And<T1, T2>
+impl<T1, T2, C> Unit<C> for And<T1, T2>
 where
-    T1: Unit,
-    T2: Unit,
+    T1: Unit<C>,
+    T2: Unit<C>,
+    C: Clone,
 {
     type Future<'a> = AndUnitFuture<T1::Future<'a>, T2::Future<'a>> where T1: 'a, T2: 'a;
 
-    fn run<'a>(self) -> Self::Future<'a> {
+    fn run<'a>(self, ctx: C) -> Self::Future<'a> {
         AndUnitFuture {
-            future: futures::future::join(self.left.run(), self.right.run()),
+            future: futures::future::join(self.left.run(ctx.clone()), self.right.run(ctx)),
         }
     }
 }
 
 pin_project! {
     #[project = AndWorkProject]
-    pub enum AndWorkFuture<T1, T2, R>
+    pub enum AndWorkFuture<T1, T2, C, R>
     where
-    T1: Work<R>,
-    T2: Work<T1::Output>,
+    T1: Work<C, R>,
+    T2: Work<C,T1::Output>,
     {
         Left {
             #[pin]
             future: T1::Future,
             next: Option<T2>,
-            ctx: Option<Context>,
+            ctx: Option<C>,
         },
         Right {
             #[pin]
@@ -78,10 +81,10 @@ pin_project! {
     }
 }
 
-impl<T1, T2, R> Future for AndWorkFuture<T1, T2, R>
+impl<T1, T2, C, R> Future for AndWorkFuture<T1, T2, C, R>
 where
-    T1: Work<R>,
-    T2: Work<T1::Output>,
+    T1: Work<C, R>,
+    T2: Work<C, T1::Output>,
 {
     type Output = Result<T2::Output, Error>;
 

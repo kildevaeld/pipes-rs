@@ -23,7 +23,7 @@ mod unit;
 mod utils;
 mod work;
 mod work_many;
-// mod wrap;
+mod wrap;
 
 #[cfg(feature = "http")]
 pub mod http;

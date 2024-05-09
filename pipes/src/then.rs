@@ -17,16 +17,17 @@ impl<T1, T2> Then<T1, T2> {
     }
 }
 
-impl<T1, T2, R> Work<R> for Then<T1, T2>
+impl<T1, T2, C, R> Work<C, R> for Then<T1, T2>
 where
-    T1: Work<R>,
-    T2: Work<Result<T1::Output, Error>> + Clone,
+    T1: Work<C, R>,
+    T2: Work<C, Result<T1::Output, Error>> + Clone,
+    C: Clone,
 {
     type Output = T2::Output;
 
-    type Future = ThenWorkFuture<T1, T2, R>;
+    type Future = ThenWorkFuture<T1, T2, C, R>;
 
-    fn call(&self, ctx: crate::Context, package: R) -> Self::Future {
+    fn call(&self, ctx: C, package: R) -> Self::Future {
         ThenWorkFuture::Left {
             future: self.left.call(ctx.clone(), package),
             next: Some(self.right.clone()),
@@ -35,37 +36,38 @@ where
     }
 }
 
-impl<T1, T2> Source for Then<T1, T2>
+impl<T1, T2, C> Source<C> for Then<T1, T2>
 where
-    T1: Source + 'static,
-    T2: Work<Result<T1::Item, Error>> + 'static + Clone,
+    T1: Source<C> + 'static,
+    T2: Work<C, Result<T1::Item, Error>> + 'static + Clone,
+    C: Clone,
 {
     type Item = T2::Output;
 
-    type Stream<'a> = ThenStream<T1::Stream<'a>, T2, T1::Item>;
+    type Stream<'a> = ThenStream<T1::Stream<'a>, T2, C, T1::Item>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         ThenStream {
-            stream: self.left.call(),
+            stream: self.left.call(ctx.clone()),
             work: self.right.clone(),
             future: None,
-            ctx: Context {},
+            ctx: ctx,
         }
     }
 }
 
 pin_project! {
     #[project = ThenWorkProject]
-    pub enum ThenWorkFuture<T1, T2, R>
+    pub enum ThenWorkFuture<T1, T2, C, R>
     where
-    T1: Work<R>,
-    T2: Work<Result<T1::Output, Error>>,
+    T1: Work<C, R>,
+    T2: Work<C,Result<T1::Output, Error>>,
     {
         Left {
             #[pin]
             future: T1::Future,
             next: Option<T2>,
-            ctx: Option<Context>,
+            ctx: Option<C>,
         },
         Right {
             #[pin]
@@ -75,10 +77,10 @@ pin_project! {
     }
 }
 
-impl<T1, T2, R> Future for ThenWorkFuture<T1, T2, R>
+impl<T1, T2, C, R> Future for ThenWorkFuture<T1, T2, C, R>
 where
-    T1: Work<R>,
-    T2: Work<Result<T1::Output, Error>>,
+    T1: Work<C, R>,
+    T2: Work<C, Result<T1::Output, Error>>,
 {
     type Output = Result<T2::Output, Error>;
 
@@ -113,20 +115,21 @@ where
 }
 
 pin_project! {
-    pub struct ThenStream<T, W, R> where W: Work<Result<R, Error>> {
+    pub struct ThenStream<T, W , C, R> where W: Work<C,Result<R, Error>> {
         #[pin]
         stream: T,
         work: W,
         #[pin]
         future: Option<W::Future>,
-        ctx: Context
+        ctx: C
     }
 }
 
-impl<T, W, R> Stream for ThenStream<T, W, R>
+impl<T, W, C, R> Stream for ThenStream<T, W, C, R>
 where
-    W: Work<Result<R, Error>>,
+    W: Work<C, Result<R, Error>>,
     T: Stream<Item = Result<R, Error>>,
+    C: Clone,
 {
     type Item = Result<W::Output, Error>;
     fn poll_next(

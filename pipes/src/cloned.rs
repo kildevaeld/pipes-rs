@@ -42,32 +42,34 @@ impl<S, T1, T2> AsyncCloned<S, T1, T2> {
     }
 }
 
-impl<S, T1, T2> Source for AsyncCloned<S, T1, T2>
+impl<S, T1, T2, C> Source<C> for AsyncCloned<S, T1, T2>
 where
-    S: Source + 'static + Send,
+    S: Source<C> + 'static + Send,
     for<'a> S::Stream<'a>: Send,
     S::Item: AsyncClone + Send,
     for<'a> <S::Item as AsyncClone>::Future<'a>: Send,
     T1::Output: Send,
-    T1: Work<S::Item> + 'static + Clone + Send,
+    T1: Work<C, S::Item> + 'static + Clone + Send,
     T1::Future: Send,
-    T2: Work<S::Item, Output = T1::Output> + 'static + Clone + Send,
+    T2: Work<C, S::Item, Output = T1::Output> + 'static + Clone + Send,
     T2::Future: Send,
+    for<'a> C: Send + 'a,
+    C: Clone,
 {
     type Item = T1::Output;
 
     type Stream<'a> = BoxStream<'a, Result<T1::Output, Error>>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         Box::pin(try_stream! {
-            let stream = self.source.call();
+            let stream = self.source.call(ctx.clone());
             futures::pin_mut!(stream);
 
             while let Some(mut item) = stream.try_next().await? {
                 let clone = item.async_clone().await?;
 
-                yield self.work1.call(Context {  }, clone).await?;
-                yield self.work2.call(Context {  }, item).await?;
+                yield self.work1.call(ctx.clone(), clone).await?;
+                yield self.work2.call(ctx.clone(), item).await?;
 
             }
         })

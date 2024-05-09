@@ -5,24 +5,24 @@ use pin_project_lite::pin_project;
 
 use crate::{and::And, dest::Dest, Source};
 
-pub trait Unit {
+pub trait Unit<C> {
     type Future<'a>: Future<Output = ()>
     where
         Self: 'a;
-    fn run<'a>(self) -> Self::Future<'a>;
+    fn run<'a>(self, ctx: C) -> Self::Future<'a>;
 }
 
-pub trait UnitExt: Unit {
+pub trait UnitExt<C>: Unit<C> {
     fn and<T>(self, next: T) -> And<Self, T>
     where
         Self: Sized,
-        T: Unit,
+        T: Unit<C>,
     {
         And::new(self, next)
     }
 }
 
-impl<T> UnitExt for T where T: Unit {}
+impl<T, C> UnitExt<C> for T where T: Unit<C> {}
 
 pub struct SourceUnit<S, T> {
     source: S,
@@ -35,16 +35,17 @@ impl<S, T> SourceUnit<S, T> {
     }
 }
 
-impl<S, T> Unit for SourceUnit<S, T>
+impl<S, T, C> Unit<C> for SourceUnit<S, T>
 where
     T: Dest<S::Item> + 'static,
-    S: Source + 'static,
+    S: Source<C> + 'static,
+    for<'a> S::Item: 'a,
 {
-    type Future<'a> = SourceUnitFure<'a, S, T>;
+    type Future<'a> = SourceUnitFure<'a, S, T, C>;
 
-    fn run<'a>(self) -> Self::Future<'a> {
+    fn run<'a>(self, ctx: C) -> Self::Future<'a> {
         SourceUnitFure {
-            stream: self.source.call(),
+            stream: self.source.call(ctx),
             dest: self.dest,
             future: None,
         }
@@ -52,7 +53,7 @@ where
 }
 
 pin_project! {
-    pub struct SourceUnitFure<'a, S: 'a, T:'a> where T: Dest<S::Item>, S: Source {
+    pub struct SourceUnitFure<'a, S: 'a, T:'a, C> where T: Dest<S::Item>, S: Source<C>, S::Item: 'a {
         #[pin]
         stream: S::Stream<'a>,
         dest: T,
@@ -61,10 +62,10 @@ pin_project! {
     }
 }
 
-impl<'a, S, T> Future for SourceUnitFure<'a, S, T>
+impl<'a, S, T, C> Future for SourceUnitFure<'a, S, T, C>
 where
     T: Dest<S::Item> + 'a,
-    S: Source,
+    S: Source<C>,
 {
     type Output = ();
 

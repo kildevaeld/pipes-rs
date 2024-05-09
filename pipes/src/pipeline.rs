@@ -1,4 +1,4 @@
-use core::task::Poll;
+use core::{marker::PhantomData, task::Poll};
 
 use async_stream::try_stream;
 use futures::{
@@ -14,30 +14,37 @@ use crate::{
     error::Error,
     source::Source,
     work::{NoopWork, Work},
+    wrap::Wrap,
 };
 
 #[derive(Debug, Clone)]
-pub struct Pipeline<S, W> {
+pub struct Pipeline<S, W, C> {
     source: S,
     work: W,
+    ctx: PhantomData<C>,
 }
 
-impl<S> Pipeline<S, NoopWork> {
-    pub fn new(source: S) -> Pipeline<S, NoopWork> {
+impl<S, C> Pipeline<S, NoopWork, C> {
+    pub fn new(source: S) -> Pipeline<S, NoopWork, C> {
         Pipeline {
             source,
             work: NoopWork,
+            ctx: PhantomData,
         }
     }
 }
 
-impl<S, W> Pipeline<S, W> {
-    pub fn new_with(source: S, work: W) -> Pipeline<S, W> {
-        Pipeline { source, work }
+impl<S, W, C> Pipeline<S, W, C> {
+    pub fn new_with(source: S, work: W) -> Pipeline<S, W, C> {
+        Pipeline {
+            source,
+            work,
+            ctx: PhantomData,
+        }
     }
 }
 
-impl<S, W> Pipeline<S, W> {
+impl<S, W, C> Pipeline<S, W, C> {
     #[cfg(feature = "tokio")]
     pub fn concurrent(self) -> ConcurrentPipeline<S, W> {
         ConcurrentPipeline {
@@ -45,41 +52,59 @@ impl<S, W> Pipeline<S, W> {
             work: self.work,
         }
     }
+
+    pub fn wrap<F, U>(self, func: F) -> Pipeline<S, Wrap<W, F, C>, C>
+    where
+        Self: Sized,
+        S: Source<C>,
+        F: Fn(C, S::Item, Self) -> U + Clone,
+        U: TryFuture,
+        U::Error: Into<Error>,
+    {
+        Pipeline {
+            source: self.source,
+            work: Wrap::new(self.work, func),
+            ctx: PhantomData,
+        }
+    }
 }
 
-impl<S, W> Source for Pipeline<S, W>
+impl<S, W, C> Source<C> for Pipeline<S, W, C>
 where
-    S: Source,
-    W: Work<S::Item> + 'static,
+    S: Source<C>,
+    W: Work<C, S::Item> + 'static,
+    C: Clone,
+    for<'a> C: 'a,
 {
     type Item = W::Output;
-    type Stream<'a> = PipelineStream<S::Stream<'a>, W, S::Item> where S: 'a;
+    type Stream<'a> = PipelineStream<S::Stream<'a>, W, C, S::Item> where S: 'a;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         PipelineStream {
-            stream: self.source.call(),
+            stream: self.source.call(ctx.clone()),
             work: self.work,
             future: None,
-            ctx: Context::new(),
+            ctx,
         }
     }
 }
 
 pin_project! {
-    pub struct PipelineStream<T, W, R> where W: Work<R> {
+    pub struct PipelineStream<T, W, C, R> where W: Work<C,R> {
         #[pin]
         stream: T,
         work: W,
         #[pin]
         future: Option<W::Future>,
-        ctx: Context
+        ctx: C
     }
 }
 
-impl<T, W, R> Stream for PipelineStream<T, W, R>
+impl<T, W, C, R> Stream for PipelineStream<T, W, C, R>
 where
-    W: Work<R>,
+    W: Work<C, R>,
     T: Stream<Item = Result<R, Error>>,
+    C: Clone,
 {
     type Item = Result<W::Output, Error>;
     fn poll_next(
@@ -110,31 +135,35 @@ pub struct ConcurrentPipeline<S, W> {
 }
 
 #[cfg(feature = "tokio")]
-impl<S, W> Source for ConcurrentPipeline<S, W>
+impl<S, W, C> Source<C> for ConcurrentPipeline<S, W>
 where
-    S: Source + Send + 'static,
+    S: Source<C> + Send + 'static,
     for<'a> S::Stream<'a>: Send,
     S::Item: Send,
-    W: Work<S::Item> + Send + Sync + 'static,
+    W: Work<C, S::Item> + Send + Sync + 'static,
     W::Output: Send,
     W::Future: Send,
+    for<'a> C: Send + 'a,
+    C: Clone,
 {
     type Item = W::Output;
 
     type Stream<'a> = BoxStream<'a, Result<Self::Item, Error>>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         alloc::boxed::Box::pin(try_stream! {
 
-            let stream = self.source.call();
+            let stream = self.source.call(ctx.clone());
             futures::pin_mut!(stream);
             let mut queue = FuturesUnordered::new();
+
             loop {
                 tokio::select! {
                     Some(next) = stream.next() => {
+                        let ctx = ctx.clone();
                         queue.push(async  {
                             let next = next?;
-                            self.work.call(Context {  }, next).await
+                            self.work.call(ctx, next).await
                         });
 
                     }

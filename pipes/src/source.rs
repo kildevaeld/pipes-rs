@@ -12,37 +12,37 @@ use crate::{
     Pipeline, SourceUnit, Unit, Work,
 };
 
-pub trait Source {
+pub trait Source<C> {
     type Item;
     type Stream<'a>: Stream<Item = Result<Self::Item, Error>>
     where
         Self: 'a;
-    fn call<'a>(self) -> Self::Stream<'a>;
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a>;
 }
 
-impl<T: 'static> Source for alloc::vec::Vec<Result<T, Error>> {
+impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>;
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::iter(self)
     }
 }
 
-impl<T: 'static> Source for Result<T, Error> {
+impl<T: 'static, C> Source<C> for Result<T, Error> {
     type Item = T;
 
     type Stream<'a> = futures::stream::Once<futures::future::Ready<Result<T, Error>>>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::once(futures::future::ready(self))
     }
 }
 
-pub trait SourceExt: Source {
+pub trait SourceExt<C>: Source<C> {
     fn and<S>(self, source: S) -> And<Self, S>
     where
         Self: Sized,
-        S: Source,
+        S: Source<C>,
     {
         And::new(self, source)
     }
@@ -58,15 +58,15 @@ pub trait SourceExt: Source {
     fn filter<W>(self, work: W) -> Filter<Self, W>
     where
         Self: Sized,
-        W: Work<Self::Item, Output = Option<Self::Item>>,
+        W: Work<C, Self::Item, Output = Option<Self::Item>>,
     {
         Filter::new(self, work)
     }
 
-    fn pipe<W>(self, work: W) -> Pipeline<Self, W>
+    fn pipe<W>(self, work: W) -> Pipeline<Self, W, C>
     where
         Self: Sized,
-        W: Work<Self::Item>,
+        W: Work<C, Self::Item>,
     {
         Pipeline::new_with(self, work)
     }
@@ -89,23 +89,24 @@ pub trait SourceExt: Source {
     fn then<W>(self, work: W) -> Then<Self, W>
     where
         Self: Sized,
-        W: Work<Result<Self::Item, Error>>,
+        W: Work<C, Result<Self::Item, Error>>,
     {
         Then::new(self, work)
     }
 
     #[cfg(feature = "tokio")]
-    fn spawn(self) -> SpawnSource<Self>
+    fn spawn(self) -> SpawnSource<Self, C>
     where
         Self: Sized + Send + 'static,
         Self::Item: Send + 'static,
         for<'a> Self::Stream<'a>: Send,
+        for<'a> C: Send + 'a,
     {
         SpawnSource::new(self)
     }
 }
 
-impl<T> SourceExt for T where T: Source {}
+impl<T, C> SourceExt<C> for T where T: Source<C> {}
 
 #[cfg(feature = "async-channel")]
 impl<T> Source for async_channel::Receiver<T> {
@@ -139,11 +140,11 @@ impl<T> Stream for AsyncChannelStream<T> {
 }
 
 #[cfg(feature = "tokio")]
-impl<T: 'static> Source for tokio::sync::mpsc::Receiver<Result<T, Error>> {
+impl<T: 'static, C> Source<C> for tokio::sync::mpsc::Receiver<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = TokioChannelStream<T>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         TokioChannelStream { rx: self }
     }
 }
@@ -170,64 +171,71 @@ impl<T> Stream for TokioChannelStream<T> {
 }
 
 #[cfg(feature = "tokio")]
-pub struct SpawnSource<S>
+pub struct SpawnSource<S, C>
 where
-    S: Source,
+    S: Source<C>,
 {
     rx: tokio::sync::mpsc::Receiver<Result<S::Item, Error>>,
+    start: futures::channel::oneshot::Sender<C>,
 }
 
 #[cfg(feature = "tokio")]
-impl<S> SpawnSource<S>
+impl<S, C> SpawnSource<S, C>
 where
-    S: Source + Send + 'static,
+    S: Source<C> + Send + 'static,
     S::Item: Send + 'static,
     for<'a> S::Stream<'a>: Send,
+    C: Send + 'static,
 {
-    pub fn new(source: S) -> SpawnSource<S> {
+    pub fn new(source: S) -> SpawnSource<S, C> {
         let (sx, rx) = tokio::sync::mpsc::channel(10);
+        let (start, wait) = futures::channel::oneshot::channel();
         tokio::spawn(async move {
-            let stream = source.call();
+            let Ok(ctx) = wait.await else { return };
+
+            let stream = source.call(ctx);
             pin_mut!(stream);
             while let Some(next) = stream.next().await {
                 sx.send(next).await.ok();
             }
         });
 
-        SpawnSource { rx }
+        SpawnSource { rx, start }
     }
 }
 
 #[cfg(feature = "tokio")]
-impl<S: 'static> Source for SpawnSource<S>
+impl<S: 'static, C> Source<C> for SpawnSource<S, C>
 where
-    S: Source,
+    S: Source<C>,
+    C: 'static,
 {
     type Item = S::Item;
 
     type Stream<'a> = TokioChannelStream<S::Item>;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+        self.start.send(ctx).ok();
         TokioChannelStream { rx: self.rx }
     }
 }
 
-impl<T1, T2> Source for Either<T1, T2>
+impl<T1, T2, C> Source<C> for Either<T1, T2>
 where
-    T1: Source,
-    T2: Source,
+    T1: Source<C>,
+    T2: Source<C>,
 {
     type Item = Either<T1::Item, T2::Item>;
 
-    type Stream<'a> = EitherSourceStream<'a, T1, T2> where T1: 'a, T2: 'a;
+    type Stream<'a> = EitherSourceStream<'a, T1, T2, C> where T1: 'a, T2: 'a;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         match self {
             Self::Left(left) => EitherSourceStream::T1 {
-                stream: left.call(),
+                stream: left.call(ctx),
             },
             Self::Right(left) => EitherSourceStream::T2 {
-                stream: left.call(),
+                stream: left.call(ctx),
             },
         }
     }
@@ -235,7 +243,7 @@ where
 
 pin_project! {
     #[project = EitherStreamProj]
-    pub enum EitherSourceStream<'a, T1: 'a, T2: 'a> where T1: Source, T2: Source {
+    pub enum EitherSourceStream<'a, T1: 'a, T2: 'a, C> where T1: Source<C>, T2: Source<C> {
         T1 {
             #[pin]
             stream: T1::Stream<'a>
@@ -247,10 +255,10 @@ pin_project! {
     }
 }
 
-impl<'a, T1, T2> Stream for EitherSourceStream<'a, T1, T2>
+impl<'a, T1, T2, C> Stream for EitherSourceStream<'a, T1, T2, C>
 where
-    T1: Source,
-    T2: Source,
+    T1: Source<C>,
+    T2: Source<C>,
 {
     type Item = Result<Either<T1::Item, T2::Item>, Error>;
 
@@ -286,38 +294,42 @@ impl<T, W> Filter<T, W> {
     }
 }
 
-impl<T, W: 'static> Source for Filter<T, W>
+impl<T, W: 'static, C> Source<C> for Filter<T, W>
 where
-    T: Source,
-    W: Work<T::Item, Output = Option<T::Item>>,
+    T: Source<C>,
+    W: Work<C, T::Item, Output = Option<T::Item>>,
+    C: Clone,
 {
     type Item = T::Item;
 
-    type Stream<'a> = FilterStream<'a, T, W> where T:'a, W: 'a;
+    type Stream<'a> = FilterStream<'a, T, W, C> where T:'a, W: 'a;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         FilterStream {
-            stream: self.source.call(),
+            stream: self.source.call(ctx.clone()),
             work: self.work,
             future: None,
+            ctx,
         }
     }
 }
 
 pin_project! {
-    pub struct FilterStream<'a, T: 'a, W> where T: Source, W: Work<T::Item, Output = Option<T::Item>> {
+    pub struct FilterStream<'a, T: 'a, W, C> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
         #[pin]
         stream: T::Stream<'a>,
         work: W,
         #[pin]
         future: Option<W::Future>,
+        ctx: C
     }
 }
 
-impl<'a, T, W> Stream for FilterStream<'a, T, W>
+impl<'a, T, W, C> Stream for FilterStream<'a, T, W, C>
 where
-    W: Work<T::Item, Output = Option<T::Item>>,
-    T: Source,
+    W: Work<C, T::Item, Output = Option<T::Item>>,
+    T: Source<C>,
+    C: Clone,
 {
     type Item = Result<T::Item, Error>;
     fn poll_next(
@@ -336,7 +348,8 @@ where
                     _ => {}
                 }
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)?) {
-                this.future.set(Some(this.work.call(Context {}, item)));
+                this.future
+                    .set(Some(this.work.call(this.ctx.clone(), item)));
             } else {
                 break None;
             }
@@ -348,17 +361,17 @@ pub struct Flatten<S> {
     source: S,
 }
 
-impl<S> Source for Flatten<S>
+impl<S, C> Source<C> for Flatten<S>
 where
-    S: Source,
+    S: Source<C>,
     S::Item: TryStream<Error = Error>,
 {
     type Item = <S::Item as TryStream>::Ok;
 
     type Stream<'a> = TryFlatten<S::Stream<'a>> where S: 'a;
 
-    fn call<'a>(self) -> Self::Stream<'a> {
-        self.source.call().try_flatten()
+    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+        self.source.call(ctx).try_flatten()
     }
 }
 

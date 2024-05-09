@@ -12,16 +12,16 @@ pub struct Cond<T, W> {
     work: W,
 }
 
-impl<T, W, R> Work<R> for Cond<T, W>
+impl<T, W, C, R> Work<C, R> for Cond<T, W>
 where
-    W: Work<R> + Clone,
+    W: Work<C, R> + Clone,
     T: Fn(&R) -> bool,
 {
     type Output = Either<R, W::Output>;
 
-    type Future = CondFuture<W, R>;
+    type Future = CondFuture<W, C, R>;
 
-    fn call(&self, ctx: crate::Context, package: R) -> Self::Future {
+    fn call(&self, ctx: C, package: R) -> Self::Future {
         if (self.check)(&package) {
             CondFuture::Work {
                 future: self.work.call(ctx, package),
@@ -35,7 +35,7 @@ where
 pin_project! {
 
   #[project = CondFutureProj]
-  pub enum CondFuture< W, R> where W: Work<R> {
+  pub enum CondFuture<W, C, R> where W: Work<C, R> {
     Ready {
       ret: Option<R>,
     },
@@ -46,9 +46,9 @@ pin_project! {
   }
 }
 
-impl<W, R> Future for CondFuture<W, R>
+impl<W, C, R> Future for CondFuture<W, C, R>
 where
-    W: Work<R>,
+    W: Work<C, R>,
 {
     type Output = Result<Either<R, W::Output>, Error>;
 

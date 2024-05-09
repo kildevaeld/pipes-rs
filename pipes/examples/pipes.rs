@@ -4,18 +4,22 @@ use pipes::{
     cond, dest_fn,
     fs::FsWork,
     http::{get, HttpWork},
-    work_fn, Error, FsDest, Package, Pipeline, SourceExt, Unit, WorkExt,
+    work_fn, Error, FsDest, NoopWork, Package, Pipeline, SourceExt, Unit, WorkExt,
 };
 use reqwest::Client;
 
+pub fn pipe<C, T>(source: T) -> Pipeline<T, NoopWork, C> {
+    Pipeline::new(source)
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let p2 = vec![
+    let p2 = pipe(vec![
         get("https://lightningcss.dev/playground/index.html"),
         get("https://dr.dk"),
         get("https://docs.rs/reqwest/latest/reqwest/struct.Url.html"),
         get("https://distrowatch.com/dwres.php?resource=headlines"),
-    ]
+    ])
     .pipe(HttpWork::new(Client::new()).into_package())
     .concurrent()
     .spawn()
@@ -70,7 +74,7 @@ async fn main() {
         .spawn()
         .dest(FsDest::new("test"));
 
-    let out = pipeline.run().await;
+    let out = pipeline.run(()).await;
 
     println!("out: {:?}", out)
 }

@@ -63,12 +63,12 @@ impl HttpWork {
     }
 }
 
-impl Work<Request> for HttpWork {
+impl<C> Work<C, Request> for HttpWork {
     type Output = Response;
 
     type Future = BoxFuture<'static, Result<Self::Output, Error>>;
 
-    fn call(&self, _ctx: crate::Context, package: Request) -> Self::Future {
+    fn call(&self, _ctx: C, package: Request) -> Self::Future {
         let client = self.client.clone();
         async move { client.execute(package).await.map_err(Error::new) }.boxed()
     }

@@ -1,6 +1,7 @@
 use std::{
     future::Future,
     io::{BufWriter, Cursor},
+    marker::PhantomData,
     sync::Arc,
     task::Poll,
 };
@@ -17,17 +18,23 @@ pub enum Operation {
     Blur { sigma: f32 },
 }
 
-pub fn imageop(ops: Vec<Operation>) -> ImageOp {
-    ImageOp(Arc::new(ops))
+pub fn imageop<C>(ops: Vec<Operation>) -> ImageOp<C> {
+    ImageOp(Arc::new(ops), PhantomData)
 }
 
-#[derive(Debug, Clone)]
-pub struct ImageOp(Arc<Vec<Operation>>);
+#[derive(Debug)]
+pub struct ImageOp<C>(Arc<Vec<Operation>>, PhantomData<C>);
 
-impl Work<Image> for ImageOp {
+impl<C> Clone for ImageOp<C> {
+    fn clone(&self) -> Self {
+        ImageOp(self.0.clone(), PhantomData)
+    }
+}
+
+impl<C> Work<C, Image> for ImageOp<C> {
     type Output = Image;
     type Future = SpawnBlockFuture<Image>;
-    fn call(&self, ctx: pipes::Context, image: Image) -> Self::Future {
+    fn call(&self, _ctx: C, image: Image) -> Self::Future {
         let ops = self.0.clone();
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -51,10 +58,10 @@ impl Work<Image> for ImageOp {
     }
 }
 
-pub fn filter(
-) -> impl Work<Package, Output = Option<Package>, Future = impl Future + Send> + Sync + Send + Copy
+pub fn filter<C>(
+) -> impl Work<C, Package, Output = Option<Package>, Future = impl Future + Send> + Sync + Send + Copy
 {
-    work_fn(|_ctx, pkg: Package| async move {
+    work_fn(|_ctx: C, pkg: Package| async move {
         let mime = pkg.mime();
         if mime.type_() == mime::IMAGE {
             Result::<_, Error>::Ok(Some(pkg))
@@ -64,8 +71,11 @@ pub fn filter(
     })
 }
 
-pub fn save(format: Format) -> Save {
-    Save { format }
+pub fn save<C>(format: Format) -> Save<C> {
+    Save {
+        format,
+        ctx: PhantomData,
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -121,15 +131,24 @@ impl Format {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct Save {
+#[derive(Debug)]
+pub struct Save<C> {
     format: Format,
+    ctx: PhantomData<C>,
 }
 
-impl Work<Image> for Save {
+impl<C> Clone for Save<C> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<C> Copy for Save<C> {}
+
+impl<C> Work<C, Image> for Save<C> {
     type Output = Package;
     type Future = SpawnBlockFuture<Package>;
-    fn call(&self, _ctx: pipes::Context, img: Image) -> Self::Future {
+    fn call(&self, _ctx: C, img: Image) -> Self::Future {
         let format = self.format;
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -173,15 +192,29 @@ pub struct Image {
     image: image::DynamicImage,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ImageWork;
+#[derive(Debug)]
+pub struct ImageWork<C>(PhantomData<C>);
 
-impl Work<Package> for ImageWork {
+impl<C> Copy for ImageWork<C> {}
+
+impl<C> Clone for ImageWork<C> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<C> Default for ImageWork<C> {
+    fn default() -> Self {
+        ImageWork(PhantomData)
+    }
+}
+
+impl<C> Work<C, Package> for ImageWork<C> {
     type Output = Image;
 
     type Future = BoxFuture<'static, Result<Self::Output, Error>>;
 
-    fn call(&self, ctx: pipes::Context, mut pkg: Package) -> Self::Future {
+    fn call(&self, _ctx: C, mut pkg: Package) -> Self::Future {
         Box::pin(async move {
             let bytes = pkg.take_content().bytes().await?;
 

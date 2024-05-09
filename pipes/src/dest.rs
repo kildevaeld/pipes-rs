@@ -125,7 +125,7 @@ where
 }
 
 #[cfg(feature = "tokio")]
-impl<T: IntoPackage + Send> Work<T> for FsDest
+impl<C, T: IntoPackage + Send> Work<C, T> for FsDest
 where
     T::Future: Send,
     for<'a> T: 'a,
@@ -134,7 +134,7 @@ where
 
     type Future = BoxFuture<'static, Result<Package, Error>>;
 
-    fn call(&self, ctx: Context, req: T) -> Self::Future {
+    fn call(&self, _ctx: C, req: T) -> Self::Future {
         let path = self.path.clone();
         Box::pin(async move {
             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
