@@ -7,7 +7,7 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 
-use crate::{and::And, context::Context, error::Error};
+use crate::{and::And, context::Context, error::Error, then::Then};
 
 #[cfg(feature = "std")]
 use super::{IntoPackage, Package};
@@ -52,6 +52,14 @@ pub trait WorkExt<T>: Work<T> {
         W: Work<Self::Output>,
     {
         And::new(self, work)
+    }
+
+    fn then<W>(self, work: W) -> Then<Self, W>
+    where
+        Self: Sized,
+        W: Work<Result<Self::Output, Error>>,
+    {
+        Then::new(self, work)
     }
 }
 

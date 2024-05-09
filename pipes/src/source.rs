@@ -1,13 +1,15 @@
 use core::{future::ready, task::Poll};
 
-use alloc::sync::Arc;
+use alloc::{string::ToString, sync::Arc};
 use either::Either;
-use futures::{ready, stream::TryFlatten, Stream, StreamExt, TryFuture, TryStream, TryStreamExt};
+use futures::{
+    pin_mut, ready, stream::TryFlatten, Stream, StreamExt, TryFuture, TryStream, TryStreamExt,
+};
 use pin_project_lite::pin_project;
 
 use crate::{
-    and::And, cloned::AsyncCloned, dest::Dest, error::Error, Context, Pipeline, SourceUnit, Unit,
-    Work,
+    and::And, cloned::AsyncCloned, dest::Dest, error::Error, then::Then, work_fn, Context,
+    Pipeline, SourceUnit, Unit, Work,
 };
 
 pub trait Source {
@@ -84,6 +86,14 @@ pub trait SourceExt: Source {
         AsyncCloned::new(self, work1, work2)
     }
 
+    fn then<W>(self, work: W) -> Then<Self, W>
+    where
+        Self: Sized,
+        W: Work<Result<Self::Item, Error>>,
+    {
+        Then::new(self, work)
+    }
+
     #[cfg(feature = "tokio")]
     fn spawn(self) -> SpawnSource<Self>
     where
@@ -129,7 +139,7 @@ impl<T> Stream for AsyncChannelStream<T> {
 }
 
 #[cfg(feature = "tokio")]
-impl<T: 'static> Source for tokio::sync::mpsc::Receiver<T> {
+impl<T: 'static> Source for tokio::sync::mpsc::Receiver<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = TokioChannelStream<T>;
 
@@ -142,7 +152,7 @@ impl<T: 'static> Source for tokio::sync::mpsc::Receiver<T> {
 pin_project! {
     pub struct TokioChannelStream<T> {
         #[pin]
-        rx: tokio::sync::mpsc::Receiver<T>,
+        rx: tokio::sync::mpsc::Receiver<Result<T, Error>>,
     }
 }
 
@@ -155,7 +165,7 @@ impl<T> Stream for TokioChannelStream<T> {
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Option<Self::Item>> {
         let mut this = self.project();
-        Poll::Ready(ready!(this.rx.poll_recv(cx)).map(Ok))
+        Poll::Ready(ready!(this.rx.poll_recv(cx)))
     }
 }
 
@@ -164,7 +174,7 @@ pub struct SpawnSource<S>
 where
     S: Source,
 {
-    rx: tokio::sync::mpsc::Receiver<S::Item>,
+    rx: tokio::sync::mpsc::Receiver<Result<S::Item, Error>>,
 }
 
 #[cfg(feature = "tokio")]
@@ -177,7 +187,11 @@ where
     pub fn new(source: S) -> SpawnSource<S> {
         let (sx, rx) = tokio::sync::mpsc::channel(10);
         tokio::spawn(async move {
-            source.dest(sx).run().await;
+            let stream = source.call();
+            pin_mut!(stream);
+            while let Some(next) = stream.next().await {
+                sx.send(next).await.ok();
+            }
         });
 
         SpawnSource { rx }
@@ -348,31 +362,22 @@ where
     }
 }
 
-// pin_project! {
+#[cfg(feature = "tokio")]
+pub struct Producer<T> {
+    sx: tokio::sync::mpsc::Sender<Result<T, Error>>,
+}
 
-//     pub struct FlattenStream<T> where T: Source {
-//         #[pin]
-//         stream: TryFlatten<T::Stream>
-//     }
-// }
+#[cfg(feature = "tokio")]
+impl<T> Producer<T> {
+    pub fn new() -> (Producer<T>, tokio::sync::mpsc::Receiver<Result<T, Error>>) {
+        let (sx, rx) = tokio::sync::mpsc::channel(10);
+        (Producer { sx }, rx)
+    }
 
-// impl<T> Stream for FlattenStream<T>
-// where
-//     T: Source,
-//     T::Item: TryStream<Error = Error,
-// {
-//     type Item = Result<<T::Item as TryStream>::Ok, Error>;
-
-//     fn poll_next(
-//         self: core::pin::Pin<&mut Self>,
-//         cx: &mut core::task::Context<'_>,
-//     ) -> Poll<Option<Self::Item>> {
-//         let this = self.project();
-
-//         match ready!(this.stream.try_poll_next(cx)) {
-//             Some(Ok(ret)) => Poll::Ready(Some(Ok(ret))),
-//             Some(Err(err)) => Poll::Ready(Some(Err(err.into()))),
-//             None => Poll::Ready(None),
-//         }
-//     }
-// }
+    pub async fn send(&self, value: T) -> Result<(), Error> {
+        self.sx
+            .send(Ok(value))
+            .await
+            .map_err(|_| Error::new("channel closed"))
+    }
+}

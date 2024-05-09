@@ -1,7 +1,7 @@
 use pipes::{
     http::{get, HttpWork},
     prelude::*,
-    FsDest, Unit, WorkExt,
+    work_fn, FsDest, Unit, WorkExt,
 };
 use pipes_img::{Format, ImageWork, Operation};
 use reqwest::Client;
@@ -25,6 +25,16 @@ async fn main() {
             })),
             pipes_img::save(Format::Jpg(80)),
         )
+        .spawn()
+        .then(work_fn(|ctx, ret| async move {
+            match ret {
+                Ok(ret) => Ok(ret),
+                Err(err) => {
+                    println!("Got error");
+                    Err(err)
+                }
+            }
+        }))
         .dest(FsDest::new("test"))
         .run()
         .await;
