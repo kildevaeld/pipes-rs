@@ -16,6 +16,7 @@ use crate::{
     work::{NoopWork, Work},
 };
 
+#[derive(Debug, Clone)]
 pub struct Pipeline<S, W> {
     source: S,
     work: W,
