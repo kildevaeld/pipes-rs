@@ -367,6 +367,14 @@ pub struct Producer<T> {
     sx: tokio::sync::mpsc::Sender<Result<T, Error>>,
 }
 
+impl<T> Clone for Producer<T> {
+    fn clone(&self) -> Self {
+        Producer {
+            sx: self.sx.clone(),
+        }
+    }
+}
+
 #[cfg(feature = "tokio")]
 impl<T> Producer<T> {
     pub fn new() -> (Producer<T>, tokio::sync::mpsc::Receiver<Result<T, Error>>) {
