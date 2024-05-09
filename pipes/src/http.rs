@@ -49,6 +49,14 @@ pub struct HttpWork {
     client: Client,
 }
 
+impl Default for HttpWork {
+    fn default() -> Self {
+        HttpWork {
+            client: Client::new(),
+        }
+    }
+}
+
 impl HttpWork {
     pub fn new(client: Client) -> HttpWork {
         HttpWork { client }

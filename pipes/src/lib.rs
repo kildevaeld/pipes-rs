@@ -23,13 +23,14 @@ mod unit;
 mod utils;
 mod work;
 mod work_many;
+mod wrap;
 
 #[cfg(feature = "http")]
 pub mod http;
 
 pub use self::{
-    cond::*, context::Context, dest::*, error::Error, pipeline::Pipeline, source::*, unit::*,
-    work::*, work_many::*,
+    cond::*, context::Context, dest::*, error::Error, pipeline::Pipeline, source::*, then::*,
+    unit::*, work::*, work_many::*,
 };
 
 #[cfg(feature = "std")]
