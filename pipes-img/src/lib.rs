@@ -188,8 +188,8 @@ impl<T> Future for SpawnBlockFuture<T> {
 
 #[derive(Debug, Clone)]
 pub struct Image {
-    path: RelativePathBuf,
-    image: image::DynamicImage,
+    pub path: RelativePathBuf,
+    pub image: image::DynamicImage,
 }
 
 #[derive(Debug)]
