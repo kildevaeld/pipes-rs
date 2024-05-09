@@ -1,12 +1,20 @@
-use bytes::{BufMut, Bytes, BytesMut};
-use futures::{stream::BoxStream, Future, TryStreamExt};
-use mime::Mime;
-use relative_path::RelativePathBuf;
+use core::task::Poll;
+use std::path::{Path, PathBuf};
 
-use crate::Error;
+use alloc::boxed::Box;
+use bytes::{BufMut, Bytes, BytesMut};
+use either::Either;
+use futures::{future::BoxFuture, stream::BoxStream, Future, TryStreamExt};
+use mime::Mime;
+use pin_project_lite::pin_project;
+use relative_path::{RelativePath, RelativePathBuf};
+use tokio::io::AsyncWriteExt;
+
+use crate::{cloned::AsyncClone, Error};
 
 pub enum Body {
     Bytes(Bytes),
+    // Path(PathBuf,)
     Stream(BoxStream<'static, Result<Bytes, Error>>),
     Empty,
 }
@@ -33,9 +41,19 @@ impl Body {
 
         Ok(())
     }
+
+    pub async fn clone(&mut self) -> Result<Body, Error> {
+        self.load().await?;
+
+        match self {
+            Self::Bytes(bs) => Ok(Body::Bytes(bs.clone())),
+            Self::Empty => Ok(Body::Empty),
+            _ => panic!("loaded"),
+        }
+    }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Meta {}
 
 pub struct Package {
@@ -55,8 +73,12 @@ impl Package {
         }
     }
 
+    pub fn path(&self) -> &RelativePath {
+        &self.name
+    }
+
     pub fn name(&self) -> &str {
-        self.name.as_str()
+        self.name.file_name().unwrap()
     }
 
     pub fn mime(&self) -> &Mime {
@@ -65,6 +87,45 @@ impl Package {
 
     pub fn content(&self) -> &Body {
         &self.content
+    }
+
+    pub fn set_content(&mut self, content: impl Into<Body>) {
+        self.content = content.into();
+    }
+
+    pub fn take_content(&mut self) -> Body {
+        core::mem::replace(&mut self.content, Body::Empty)
+    }
+
+    pub async fn clone(&mut self) -> Result<Package, Error> {
+        Ok(Package {
+            name: self.name.clone(),
+            mime: self.mime.clone(),
+            content: self.content.clone().await?,
+            meta: self.meta.clone(),
+        })
+    }
+
+    pub async fn write_to(self, path: impl AsRef<Path>) -> Result<(), Error> {
+        let mut file = tokio::fs::File::create(self.name.to_logical_path(path))
+            .await
+            .map_err(Error::new)?;
+
+        match self.content {
+            Body::Bytes(bs) => {
+                file.write_all(&*bs).await.map_err(Error::new)?;
+            }
+            Body::Stream(mut stream) => {
+                while let Some(next) = stream.try_next().await? {
+                    file.write_all(&next).await.map_err(Error::new)?;
+                }
+            }
+            Body::Empty => {}
+        }
+
+        file.flush().await.map_err(Error::new)?;
+
+        Ok(())
     }
 }
 
@@ -78,5 +139,66 @@ impl IntoPackage for Package {
     type Future = futures::future::Ready<Result<Package, Error>>;
     fn into_package(self) -> Self::Future {
         futures::future::ready(Ok(self))
+    }
+}
+
+impl<T1, T2> IntoPackage for Either<T1, T2>
+where
+    T1: IntoPackage,
+    T2: IntoPackage,
+{
+    type Future = EitherIntoPackageFuture<T1, T2>;
+
+    fn into_package(self) -> Self::Future {
+        match self {
+            Self::Left(left) => EitherIntoPackageFuture::T1 {
+                future: left.into_package(),
+            },
+            Self::Right(left) => EitherIntoPackageFuture::T2 {
+                future: left.into_package(),
+            },
+        }
+    }
+}
+
+pin_project! {
+    #[project = EitherFutureProj]
+    pub enum EitherIntoPackageFuture<T1, T2> where T1: IntoPackage, T2: IntoPackage {
+        T1 {
+            #[pin]
+            future: T1::Future
+        },
+        T2 {
+            #[pin]
+            future: T2::Future
+        }
+    }
+}
+
+impl<T1, T2> Future for EitherIntoPackageFuture<T1, T2>
+where
+    T1: IntoPackage,
+    T2: IntoPackage,
+{
+    type Output = Result<Package, Error>;
+
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        let this = self.project();
+
+        match this {
+            EitherFutureProj::T1 { future } => future.poll(cx),
+            EitherFutureProj::T2 { future } => future.poll(cx),
+        }
+    }
+}
+
+impl AsyncClone for Package {
+    type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
+
+    fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
+        Box::pin(async move { self.clone().await })
     }
 }

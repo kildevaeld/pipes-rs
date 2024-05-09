@@ -31,13 +31,12 @@ impl<S> Pipeline<S, NoopWork> {
 }
 
 impl<S, W> Pipeline<S, W> {
-    pub fn pipe<T>(self, work: T) -> Pipeline<S, And<W, T>> {
-        Pipeline {
-            source: self.source,
-            work: And::new(self.work, work),
-        }
+    pub fn new_with(source: S, work: W) -> Pipeline<S, W> {
+        Pipeline { source, work }
     }
+}
 
+impl<S, W> Pipeline<S, W> {
     #[cfg(feature = "tokio")]
     pub fn concurrent(self) -> ConcurrentPipeline<S, W> {
         ConcurrentPipeline {
@@ -50,12 +49,12 @@ impl<S, W> Pipeline<S, W> {
 impl<S, W> Source for Pipeline<S, W>
 where
     S: Source,
-    W: Work<S::Item>,
+    W: Work<S::Item> + 'static,
 {
     type Item = W::Output;
-    type Stream = PipelineStream<S::Stream, W, S::Item>;
+    type Stream<'a> = PipelineStream<S::Stream<'a>, W, S::Item> where S: 'a;
 
-    fn call(self) -> Self::Stream {
+    fn call<'a>(self) -> Self::Stream<'a> {
         PipelineStream {
             stream: self.source.call(),
             work: self.work,
@@ -113,7 +112,7 @@ pub struct ConcurrentPipeline<S, W> {
 impl<S, W> Source for ConcurrentPipeline<S, W>
 where
     S: Source + Send + 'static,
-    S::Stream: Send,
+    for<'a> S::Stream<'a>: Send,
     S::Item: Send,
     W: Work<S::Item> + Send + Sync + 'static,
     W::Output: Send,
@@ -121,9 +120,9 @@ where
 {
     type Item = W::Output;
 
-    type Stream = BoxStream<'static, Result<Self::Item, Error>>;
+    type Stream<'a> = BoxStream<'a, Result<Self::Item, Error>>;
 
-    fn call(self) -> Self::Stream {
+    fn call<'a>(self) -> Self::Stream<'a> {
         alloc::boxed::Box::pin(try_stream! {
 
             let stream = self.source.call();

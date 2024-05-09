@@ -6,6 +6,8 @@ extern crate alloc;
 extern crate std;
 
 mod and;
+mod cloned;
+mod cond;
 mod context;
 mod dest;
 mod error;
@@ -18,13 +20,19 @@ mod pipeline;
 mod source;
 mod unit;
 mod work;
+mod work_many;
 
 #[cfg(feature = "http")]
 pub mod http;
 
 pub use self::{
-    context::Context, dest::*, error::Error, pipeline::Pipeline, source::*, unit::*, work::*,
+    cond::*, context::Context, dest::*, error::Error, pipeline::Pipeline, source::*, unit::*,
+    work::*, work_many::*,
 };
 
 #[cfg(feature = "std")]
 pub use self::package::*;
+
+pub mod prelude {
+    pub use super::{SourceExt, UnitExt, WorkExt};
+}

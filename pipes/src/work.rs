@@ -1,12 +1,13 @@
 use alloc::boxed::Box;
 use core::task::Poll;
+use either::Either;
 use futures::{
     future::{BoxFuture, LocalBoxFuture},
     ready, Future, FutureExt, TryFuture,
 };
 use pin_project_lite::pin_project;
 
-use crate::{context::Context, error::Error};
+use crate::{and::And, context::Context, error::Error};
 
 #[cfg(feature = "std")]
 use super::{IntoPackage, Package};
@@ -44,6 +45,14 @@ pub trait WorkExt<T>: Work<T> {
     {
         IntoPackageWork { worker: self }
     }
+
+    fn pipe<W>(self, work: W) -> And<Self, W>
+    where
+        Self: Sized,
+        W: Work<Self::Output>,
+    {
+        And::new(self, work)
+    }
 }
 
 impl<T, R> WorkExt<R> for T where T: Work<R> {}
@@ -59,12 +68,17 @@ impl<R> Work<R> for NoopWork {
     }
 }
 
-pub fn work_fn<T>(func: T) -> WorkFn<T> {
+pub fn work_fn<T, R, U>(func: T) -> WorkFn<T>
+where
+    T: Fn(Context, R) -> U,
+    U: TryFuture,
+    U::Error: Into<Error>,
+{
     WorkFn(func)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WorkFn<T>(T);
+pub struct WorkFn<T>(pub(crate) T);
 
 impl<T, U, R> Work<R> for WorkFn<T>
 where
@@ -222,6 +236,67 @@ where
                     panic!("poll after done")
                 }
             }
+        }
+    }
+}
+
+impl<T1, T2, T> Work<T> for Either<T1, T2>
+where
+    T1: Work<T>,
+    T2: Work<T>,
+{
+    type Output = Either<T1::Output, T2::Output>;
+
+    type Future = EitherWorkFuture<T1, T2, T>;
+
+    fn call(&self, ctx: Context, package: T) -> Self::Future {
+        match self {
+            Self::Left(left) => EitherWorkFuture::T1 {
+                future: left.call(ctx, package),
+            },
+            Self::Right(left) => EitherWorkFuture::T2 {
+                future: left.call(ctx, package),
+            },
+        }
+    }
+}
+
+pin_project! {
+    #[project = EitherFutureProj]
+    pub enum EitherWorkFuture<T1, T2, T> where T1: Work<T>, T2: Work<T> {
+        T1 {
+            #[pin]
+            future: T1::Future
+        },
+        T2 {
+            #[pin]
+            future: T2::Future
+        }
+    }
+}
+
+impl<T1, T2, T> Future for EitherWorkFuture<T1, T2, T>
+where
+    T1: Work<T>,
+    T2: Work<T>,
+{
+    type Output = Result<Either<T1::Output, T2::Output>, Error>;
+
+    fn poll(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Self::Output> {
+        let this = self.project();
+
+        match this {
+            EitherFutureProj::T1 { future } => match ready!(future.try_poll(cx)) {
+                Ok(ret) => Poll::Ready(Ok(Either::Left(ret))),
+                Err(err) => Poll::Ready(Err(err)),
+            },
+            EitherFutureProj::T2 { future } => match ready!(future.try_poll(cx)) {
+                Ok(ret) => Poll::Ready(Ok(Either::Right(ret))),
+                Err(err) => Poll::Ready(Err(err)),
+            },
         }
     }
 }

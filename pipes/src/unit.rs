@@ -3,7 +3,7 @@ use core::task::Poll;
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{dest::Dest, Source};
+use crate::{and::And, dest::Dest, Source};
 
 pub trait Unit {
     type Future<'a>: Future<Output = ()>
@@ -11,6 +11,18 @@ pub trait Unit {
         Self: 'a;
     fn run<'a>(self) -> Self::Future<'a>;
 }
+
+pub trait UnitExt: Unit {
+    fn and<T>(self, next: T) -> And<Self, T>
+    where
+        Self: Sized,
+        T: Unit,
+    {
+        And::new(self, next)
+    }
+}
+
+impl<T> UnitExt for T where T: Unit {}
 
 pub struct SourceUnit<S, T> {
     source: S,
@@ -40,9 +52,9 @@ where
 }
 
 pin_project! {
-    pub struct SourceUnitFure<'a, S, T:'a> where T: Dest<S::Item>, S: Source {
+    pub struct SourceUnitFure<'a, S: 'a, T:'a> where T: Dest<S::Item>, S: Source {
         #[pin]
-        stream: S::Stream,
+        stream: S::Stream<'a>,
         dest: T,
         #[pin]
         future: Option<T::Future<'a>>

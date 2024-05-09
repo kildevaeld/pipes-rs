@@ -36,8 +36,8 @@ where
     T2: Source<Item = T1::Item>,
 {
     type Item = T1::Item;
-    type Stream = futures::stream::Select<T1::Stream, T2::Stream>;
-    fn call(self) -> Self::Stream {
+    type Stream<'a> = futures::stream::Select<T1::Stream<'a>, T2::Stream<'a>> where T1: 'a, T2: 'a;
+    fn call<'a>(self) -> Self::Stream<'a> {
         futures::stream::select(self.left.call(), self.right.call())
     }
 }
