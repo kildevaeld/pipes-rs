@@ -106,18 +106,20 @@ impl Package {
         })
     }
 
-    pub async fn write_to(self, path: impl AsRef<Path>) -> Result<(), Error> {
+    pub async fn write_to(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         let mut file = tokio::fs::File::create(self.name.to_logical_path(path))
             .await
             .map_err(Error::new)?;
 
-        match self.content {
+        match &mut self.content {
             Body::Bytes(bs) => {
                 file.write_all(&*bs).await.map_err(Error::new)?;
             }
-            Body::Stream(mut stream) => {
+            Body::Stream(ref mut stream) => {
+                let mut bytes = BytesMut::new();
                 while let Some(next) = stream.try_next().await? {
                     file.write_all(&next).await.map_err(Error::new)?;
+                    bytes.put(next);
                 }
             }
             Body::Empty => {}
