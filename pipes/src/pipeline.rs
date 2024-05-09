@@ -17,12 +17,28 @@ use crate::{
     wrap::Wrap,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Pipeline<S, W, C> {
     source: S,
     work: W,
     ctx: PhantomData<C>,
 }
+
+impl<S: Clone, W: Clone, C> Clone for Pipeline<S, W, C> {
+    fn clone(&self) -> Self {
+        Pipeline {
+            source: self.source.clone(),
+            work: self.work.clone(),
+            ctx: PhantomData,
+        }
+    }
+}
+
+impl<S: Copy, W: Copy, C> Copy for Pipeline<S, W, C> {}
+
+unsafe impl<S: Send, W: Send, C> Send for Pipeline<S, W, C> {}
+
+unsafe impl<S: Sync, W: Sync, C> Sync for Pipeline<S, W, C> {}
 
 impl<S, C> Pipeline<S, NoopWork, C> {
     pub fn new(source: S) -> Pipeline<S, NoopWork, C> {

@@ -26,6 +26,7 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct AsyncCloned<S, T1, T2> {
     source: S,
     work1: T1,

@@ -198,6 +198,10 @@ impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
     }
 }
 
+unsafe impl<T: Send, C> Send for IntoPackageWork<T, C> {}
+
+unsafe impl<T: Sync, C> Sync for IntoPackageWork<T, C> {}
+
 #[cfg(feature = "std")]
 impl<T, C, R> Work<C, R> for IntoPackageWork<T, C>
 where
