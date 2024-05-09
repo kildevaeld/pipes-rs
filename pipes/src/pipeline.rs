@@ -73,7 +73,7 @@ impl<S, W, C> Pipeline<S, W, C> {
     where
         Self: Sized,
         S: Source<C>,
-        F: Fn(C, S::Item, Self) -> U + Clone,
+        F: Fn(C, S::Item, W) -> U + Clone,
         U: TryFuture,
         U::Error: Into<Error>,
     {
