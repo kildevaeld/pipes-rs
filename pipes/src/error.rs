@@ -1,4 +1,4 @@
-use core::fmt::Debug;
+use core::fmt::{self, Debug};
 
 use alloc::boxed::Box;
 
@@ -18,5 +18,23 @@ impl Error {
         Error {
             inner: error.into(),
         }
+    }
+
+    pub fn inner(&self) -> &BoxError {
+        &self.inner
+    }
+}
+
+#[cfg(feature = "std")]
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&*self.inner)
     }
 }
