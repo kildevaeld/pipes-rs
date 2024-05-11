@@ -6,12 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["fs"]
+default = []
 http = ["reqwest", "tokio", "http-body", "std"]
 tokio = ["dep:tokio"]
 async-channel = ["dep:async-channel"]
 std = ["mime", "bytes", "relative-path"]
-fs = ["tokio/fs", "std", "mime_guess", "tokio-util"]
+fs = ["tokio", "tokio/fs", "std", "mime_guess", "tokio-util"]
 
 [dependencies]
 mime = { version = "0.3", optional = true }

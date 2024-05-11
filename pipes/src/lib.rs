@@ -18,7 +18,7 @@ mod func;
 mod package;
 mod pipeline;
 mod source;
-// mod split;
+mod split;
 mod then;
 mod unit;
 mod utils;

@@ -3,19 +3,19 @@ use std::sync::Mutex;
 
 use alloc::{collections::VecDeque, sync::Arc};
 use either::Either;
-use futures::{ready, Stream, TryFuture, TryStream};
+use futures::{ready, Future, Stream, TryFuture, TryStream};
 use pin_project_lite::pin_project;
 
 use crate::{Error, Source, Work};
 
-pub trait Splited {
+pub trait Anyways {
     type Left;
     type Right;
 
     fn into_either(self) -> Either<Self::Left, Self::Right>;
 }
 
-impl<L, R> Splited for Either<L, R> {
+impl<L, R> Anyways for Either<L, R> {
     type Left = L;
     type Right = R;
     fn into_either(self) -> Either<L, R> {
@@ -24,220 +24,103 @@ impl<L, R> Splited for Either<L, R> {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct Split<S, W> {
-    source: S,
-    work: W,
+pub struct Split<S, L, R> {
+    splitter: S,
+    left: L,
+    right: R,
 }
 
-impl<S, W> Split<S, W> {
-    pub fn new(source: S, work: W) -> Split<S, W> {
-        Split { source, work }
+impl<S, L, R> Split<S, L, R> {
+    pub fn new(splitter: S, left: L, right: R) -> Split<S, L, R> {
+        Split {
+            splitter,
+            left,
+            right,
+        }
     }
 }
 
-impl<S, W, C> Source<C> for Split<S, W>
+impl<S, L, R, C, T> Work<C, T> for Split<S, L, R>
 where
-    S: Source<C>,
-    W: Work<C, S::Item> + Clone + 'static,
-    W::Output: Splited,
+    S: Work<C, T>,
+    S::Output: Anyways,
+    L: Work<C, <S::Output as Anyways>::Left> + Clone,
+    R: Work<C, <S::Output as Anyways>::Right, Output = L::Output> + Clone,
     C: Clone,
 {
-    type Item = Either<<W::Output as Splited>::Left, <W::Output as Splited>::Right>;
+    type Output = L::Output;
 
-    type Stream<'a> = SplitStream<'a, S, W, C> where S: 'a;
+    type Future = SplitFuture<S, L, R, C, T>;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        SplitStream {
-            stream: self.source.call(ctx.clone()),
-            work: self.work.clone(),
-            future: None,
-            ctx,
+    fn call(&self, ctx: C, package: T) -> Self::Future {
+        SplitFuture::Init {
+            future: self.splitter.call(ctx.clone(), package),
+            left: self.left.clone(),
+            right: self.right.clone(),
+            ctx: Some(ctx),
         }
     }
 }
 
 pin_project! {
-    pub struct SplitStream<'a, S: 'a, W, C>
+    #[project = SplitFutureProj]
+    pub enum SplitFuture<S, L, R, C, T>
     where
-        S: Source<C>,
-        W: Work<C, S::Item>,
-        W::Output: Splited,
-     {
-        #[pin]
-        stream: S::Stream<'a>,
-        work: W,
-        #[pin]
-        future: Option<W::Future>,
-        ctx: C
-     }
-}
-
-impl<'a, S: 'a, W, C> Stream for SplitStream<'a, S, W, C>
-where
-    S: Source<C>,
-    W: Work<C, S::Item>,
-    W::Output: Splited,
-    C: Clone,
-{
-    type Item = Result<Either<<W::Output as Splited>::Left, <W::Output as Splited>::Right>, Error>;
-
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<Option<Self::Item>> {
-        let mut this = self.project();
-
-        Poll::Ready(loop {
-            if let Some(fut) = this.future.as_mut().as_pin_mut() {
-                let item = ready!(fut.try_poll(cx));
-                this.future.set(None);
-                break Some(item.map(|m| m.into_either()));
-            } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)?) {
-                this.future
-                    .set(Some(this.work.call(this.ctx.clone(), item)));
-            } else {
-                break None;
-            }
-        })
-    }
-}
-
-pin_project! {
-    pub struct Split2<'a, S: 'a, C>
-    where
-        S: Source<C>,
-        S::Item: Splited,
+    S: Work<C, T>,
+    S::Output: Anyways,
+    L: Work<C, <S::Output as Anyways>::Left>,
+    R: Work<C, <S::Output as Anyways>::Right, Output = L::Output>,
     {
-        #[pin]
-        source: S::Stream<'a>,
-        left: VecDeque<<S::Item as Splited>::Left>,
-        right: VecDeque<<S::Item as Splited>::Right>,
-        ctx: PhantomData<C>,
+        Init {
+            #[pin]
+            future: S::Future,
+            left: L,
+            right: R,
+            ctx: Option<C>
+        },
+        Next {
+            #[pin]
+            future: futures::future::Either<L::Future, R::Future>
+        }
     }
 }
 
-impl<'a, S: 'a, C> Split2<'a, S, C>
+impl<S, L, R, C, T> Future for SplitFuture<S, L, R, C, T>
 where
-    S: Source<C>,
-    S::Item: Splited,
+    S: Work<C, T>,
+    S::Output: Anyways,
+    L: Work<C, <S::Output as Anyways>::Left>,
+    R: Work<C, <S::Output as Anyways>::Right, Output = L::Output>,
 {
-    pub fn next_left(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Result<<S::Item as Splited>::Left, Error>>> {
-        let mut this = self.project();
+    type Output = Result<L::Output, Error>;
 
-        if let Some(next) = this.left.pop_front() {
-            return Poll::Ready(Some(Ok(next)));
-        }
-
+    fn poll(mut self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         loop {
-            match ready!(this.source.as_mut().try_poll_next(cx)) {
-                Some(Err(err)) => return Poll::Ready(Some(Err(err))),
-                Some(Ok(ret)) => match ret.into_either() {
-                    Either::Left(left) => return Poll::Ready(Some(Ok(left))),
-                    Either::Right(right) => {
-                        this.right.push_back(right);
+            let this = self.as_mut().project();
+
+            match this {
+                SplitFutureProj::Init {
+                    future,
+                    left,
+                    right,
+                    ctx,
+                } => match ready!(future.poll(cx)) {
+                    Ok(ret) => {
+                        let future = match ret.into_either() {
+                            Either::Left(ret) => {
+                                futures::future::Either::Left(left.call(ctx.take().unwrap(), ret))
+                            }
+                            Either::Right(ret) => {
+                                futures::future::Either::Right(right.call(ctx.take().unwrap(), ret))
+                            }
+                        };
+
+                        self.set(SplitFuture::Next { future });
                     }
+                    Err(err) => return Poll::Ready(Err(err)),
                 },
-                None => return Poll::Ready(None),
+                SplitFutureProj::Next { future } => return future.poll(cx),
             }
         }
     }
-
-    pub fn next_right(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Result<<S::Item as Splited>::Right, Error>>> {
-        let mut this = self.project();
-
-        if let Some(next) = this.right.pop_front() {
-            return Poll::Ready(Some(Ok(next)));
-        }
-
-        loop {
-            match ready!(this.source.as_mut().try_poll_next(cx)) {
-                Some(Err(err)) => return Poll::Ready(Some(Err(err))),
-                Some(Ok(ret)) => match ret.into_either() {
-                    Either::Right(right) => return Poll::Ready(Some(Ok(right))),
-                    Either::Left(left) => {
-                        this.left.push_back(left);
-                    }
-                },
-                None => return Poll::Ready(None),
-            }
-        }
-    }
-}
-
-pin_project! {
-    pub struct LeftStream<'a, S, C>
-    where
-        S: Source<C>,
-        S::Item: Splited,
-    {
-        inner:  Arc<Mutex<Split2<'a, S, C>>>
-    }
-}
-
-impl<'a, S, C> Stream for LeftStream<'a, S, C>
-where
-    S: Source<C>,
-    S::Item: Splited,
-{
-    type Item = Result<<S::Item as Splited>::Left, Error>;
-
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        let mut guard = this.inner.lock().expect("lock");
-        let projected = unsafe { Pin::new_unchecked(&mut *guard) };
-        projected.next_left(cx)
-    }
-}
-
-pin_project! {
-    pub struct RightStream<'a, S, C>
-    where
-        S: Source<C>,
-        S::Item: Splited,
-    {
-        inner: Arc<Mutex<Split2<'a, S, C>>>
-    }
-}
-
-impl<'a, S, C> Stream for RightStream<'a, S, C>
-where
-    S: Source<C>,
-    S::Item: Splited,
-{
-    type Item = Result<<S::Item as Splited>::Right, Error>;
-
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Option<Self::Item>> {
-        let this = self.project();
-        let mut guard = this.inner.lock().expect("lock");
-        let projected = unsafe { Pin::new_unchecked(&mut *guard) };
-        projected.next_right(cx)
-    }
-}
-
-pub struct Left<'a, S, C>
-where
-    S: Source<C>,
-    S::Item: Splited,
-{
-    split: Arc<Mutex<Split2<'a, S, C>>>,
-}
-
-pub fn split<S, W, C>(source: S, work: W)
-where
-    S: Source<C>,
-    W: Work<C, S::Item>,
-    W::Output: Splited,
-{
 }

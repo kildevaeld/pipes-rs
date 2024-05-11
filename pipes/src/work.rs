@@ -7,7 +7,14 @@ use futures::{
 };
 use pin_project_lite::pin_project;
 
-use crate::{and::And, context::Context, error::Error, then::Then, wrap::Wrap};
+use crate::{
+    and::And,
+    context::Context,
+    error::Error,
+    split::{Anyways, Split},
+    then::Then,
+    wrap::Wrap,
+};
 
 #[cfg(feature = "std")]
 use super::{IntoPackage, Package};
@@ -73,6 +80,17 @@ pub trait WorkExt<C, T>: Work<C, T> {
         U::Error: Into<Error>,
     {
         Wrap::new(self, func)
+    }
+
+    fn split<L, R>(self, left: L, right: R) -> Split<Self, L, R>
+    where
+        Self: Sized,
+        Self::Output: Anyways,
+        L: Work<C, <Self::Output as Anyways>::Left> + Clone,
+        R: Work<C, <Self::Output as Anyways>::Right, Output = L::Output> + Clone,
+        C: Clone,
+    {
+        Split::new(self, left, right)
     }
 }
 
