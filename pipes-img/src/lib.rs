@@ -192,6 +192,14 @@ pub struct Image {
     pub image: image::DynamicImage,
 }
 
+impl core::ops::Deref for Image {
+    type Target = image::DynamicImage;
+
+    fn deref(&self) -> &Self::Target {
+        &self.image
+    }
+}
+
 #[derive(Debug)]
 pub struct ImageWork<C>(PhantomData<C>);
 

@@ -1,7 +1,7 @@
 use core::{marker::PhantomData, pin::Pin, task::Poll};
 use std::sync::Mutex;
 
-use alloc::collections::VecDeque;
+use alloc::{collections::VecDeque, sync::Arc};
 use either::Either;
 use futures::{ready, Stream, TryFuture, TryStream};
 use pin_project_lite::pin_project;
@@ -176,7 +176,7 @@ pin_project! {
         S: Source<C>,
         S::Item: Splited,
     {
-        inner: Mutex<Split2<'a, S, C>>
+        inner:  Arc<Mutex<Split2<'a, S, C>>>
     }
 }
 
@@ -204,7 +204,7 @@ pin_project! {
         S: Source<C>,
         S::Item: Splited,
     {
-        inner: Mutex<Split2<'a, S, C>>
+        inner: Arc<Mutex<Split2<'a, S, C>>>
     }
 }
 
@@ -224,6 +224,14 @@ where
         let projected = unsafe { Pin::new_unchecked(&mut *guard) };
         projected.next_right(cx)
     }
+}
+
+pub struct Left<'a, S, C>
+where
+    S: Source<C>,
+    S::Item: Splited,
+{
+    split: Arc<Mutex<Split2<'a, S, C>>>,
 }
 
 pub fn split<S, W, C>(source: S, work: W)
