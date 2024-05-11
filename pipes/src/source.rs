@@ -140,7 +140,7 @@ impl<T> Stream for AsyncChannelStream<T> {
 }
 
 #[cfg(feature = "tokio")]
-impl<T: 'static, C> Source<C> for tokio::sync::mpsc::Receiver<Result<T, Error>> {
+impl<T: 'static, C> Source<C> for tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = TokioChannelStream<T>;
 
@@ -153,7 +153,7 @@ impl<T: 'static, C> Source<C> for tokio::sync::mpsc::Receiver<Result<T, Error>> 
 pin_project! {
     pub struct TokioChannelStream<T> {
         #[pin]
-        rx: tokio::sync::mpsc::Receiver<Result<T, Error>>,
+        rx: tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>>,
     }
 }
 
@@ -175,7 +175,7 @@ pub struct SpawnSource<S, C>
 where
     S: Source<C>,
 {
-    rx: tokio::sync::mpsc::Receiver<Result<S::Item, Error>>,
+    rx: tokio::sync::mpsc::UnboundedReceiver<Result<S::Item, Error>>,
     start: futures::channel::oneshot::Sender<C>,
 }
 
@@ -188,7 +188,7 @@ where
     C: Send + 'static,
 {
     pub fn new(source: S) -> SpawnSource<S, C> {
-        let (sx, rx) = tokio::sync::mpsc::channel(10);
+        let (sx, rx) = tokio::sync::mpsc::unbounded_channel();
         let (start, wait) = futures::channel::oneshot::channel();
         tokio::spawn(async move {
             let Ok(ctx) = wait.await else { return };
@@ -196,7 +196,7 @@ where
             let stream = source.call(ctx);
             pin_mut!(stream);
             while let Some(next) = stream.next().await {
-                sx.send(next).await.ok();
+                sx.send(next).ok();
             }
         });
 
@@ -377,7 +377,7 @@ where
 
 #[cfg(feature = "tokio")]
 pub struct Producer<T> {
-    sx: tokio::sync::mpsc::Sender<Result<T, Error>>,
+    sx: tokio::sync::mpsc::UnboundedSender<Result<T, Error>>,
 }
 
 impl<T> Clone for Producer<T> {
@@ -390,15 +390,17 @@ impl<T> Clone for Producer<T> {
 
 #[cfg(feature = "tokio")]
 impl<T> Producer<T> {
-    pub fn new() -> (Producer<T>, tokio::sync::mpsc::Receiver<Result<T, Error>>) {
-        let (sx, rx) = tokio::sync::mpsc::channel(10);
+    pub fn new() -> (
+        Producer<T>,
+        tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>>,
+    ) {
+        let (sx, rx) = tokio::sync::mpsc::unbounded_channel();
         (Producer { sx }, rx)
     }
 
-    pub async fn send(&self, value: T) -> Result<(), Error> {
+    pub fn send(&self, value: T) -> Result<(), Error> {
         self.sx
             .send(Ok(value))
-            .await
             .map_err(|_| Error::new("channel closed"))
     }
 }
