@@ -1,5 +1,5 @@
 use core::task::Poll;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use alloc::boxed::Box;
 use bytes::{BufMut, Bytes, BytesMut};

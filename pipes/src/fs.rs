@@ -15,6 +15,15 @@ pub struct File {
 }
 
 impl File {
+    pub async fn from_path(path: impl AsRef<Path>) -> Result<File, Error> {
+        let file = tokio::fs::File::open(&path).await.map_err(Error::new)?;
+
+        Ok(File {
+            path: path.as_ref().to_path_buf(),
+            content: file,
+        })
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }
