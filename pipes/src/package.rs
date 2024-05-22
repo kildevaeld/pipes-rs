@@ -81,7 +81,7 @@ impl Package {
         &mut self.name
     }
 
-    pub fn set_path(mut self, name: impl Into<RelativePathBuf>) {
+    pub fn set_path(&mut self, name: impl Into<RelativePathBuf>) {
         self.name = name.into();
     }
 
