@@ -77,6 +77,14 @@ impl Package {
         &self.name
     }
 
+    pub fn path_mut(&mut self) -> &mut RelativePathBuf {
+        &mut self.name
+    }
+
+    pub fn set_path(mut self, name: impl Into<RelativePathBuf>) {
+        self.name = name.into();
+    }
+
     pub fn name(&self) -> &str {
         self.name.file_name().unwrap()
     }
