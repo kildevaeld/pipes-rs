@@ -3,7 +3,7 @@ use core::{mem::transmute, task::Poll};
 use futures::{ready, Future, Stream};
 use pin_project_lite::pin_project;
 
-use crate::{Context, Error, Source, Work};
+use crate::{Error, Source, Work};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Then<T1, T2> {

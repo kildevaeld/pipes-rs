@@ -9,8 +9,6 @@ use futures::{
 use pin_project_lite::pin_project;
 
 use crate::{
-    and::And,
-    context::Context,
     error::Error,
     source::Source,
     work::{NoopWork, Work},

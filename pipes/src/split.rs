@@ -1,12 +1,10 @@
-use core::{marker::PhantomData, pin::Pin, task::Poll};
-use std::sync::Mutex;
+use core::{pin::Pin, task::Poll};
 
-use alloc::{collections::VecDeque, sync::Arc};
 use either::Either;
-use futures::{ready, Future, Stream, TryFuture, TryStream};
+use futures::{ready, Future};
 use pin_project_lite::pin_project;
 
-use crate::{Error, Source, Work};
+use crate::{Error, Work};
 
 pub trait Anyways {
     type Left;

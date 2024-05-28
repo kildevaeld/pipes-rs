@@ -1,4 +1,4 @@
-use crate::{context::Context, error::Error, source::Source, work::Work, Unit};
+use crate::{error::Error, source::Source, work::Work, Unit};
 use core::task::Poll;
 use futures::{ready, Future};
 use pin_project_lite::pin_project;

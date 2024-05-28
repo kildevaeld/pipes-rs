@@ -1,11 +1,9 @@
-use core::task::Poll;
 
 use alloc::boxed::Box;
 use async_stream::try_stream;
-use futures::{ready, stream::BoxStream, Future, Stream, TryStreamExt};
-use pin_project_lite::pin_project;
+use futures::{stream::BoxStream, Future, TryStreamExt};
 
-use crate::{Context, Error, Source, Work};
+use crate::{Error, Source, Work};
 
 pub trait AsyncClone: Sized {
     type Future<'a>: Future<Output = Result<Self, Error>>

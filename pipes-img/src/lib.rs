@@ -9,7 +9,7 @@ use std::{
 use futures::{future::BoxFuture, ready};
 use image::DynamicImage;
 use pin_project_lite::pin_project;
-use pipes::{work_fn, Body, Error, Package, Work};
+use pipes::{Body, Error, Package, Work};
 use relative_path::RelativePathBuf;
 
 #[derive(Debug, Clone)]

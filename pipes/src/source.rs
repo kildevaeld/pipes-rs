@@ -1,6 +1,5 @@
-use core::{future::ready, mem::transmute, task::Poll};
+use core::{mem::transmute, task::Poll};
 
-use alloc::{string::ToString, sync::Arc};
 use either::Either;
 use futures::{
     pin_mut, ready, stream::TryFlatten, Stream, StreamExt, TryFuture, TryStream, TryStreamExt,
@@ -8,8 +7,7 @@ use futures::{
 use pin_project_lite::pin_project;
 
 use crate::{
-    and::And, cloned::AsyncCloned, dest::Dest, error::Error, then::Then, work_fn, Context,
-    Pipeline, SourceUnit, Unit, Work,
+    and::And, cloned::AsyncCloned, dest::Dest, error::Error, then::Then, Pipeline, SourceUnit, Work,
 };
 
 pub trait Source<C> {
@@ -144,7 +142,7 @@ impl<T: 'static, C> Source<C> for tokio::sync::mpsc::UnboundedReceiver<Result<T,
     type Item = T;
     type Stream<'a> = TokioChannelStream<T>;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
         TokioChannelStream { rx: self }
     }
 }

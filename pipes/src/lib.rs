@@ -13,7 +13,6 @@ mod dest;
 mod error;
 #[cfg(feature = "fs")]
 pub mod fs;
-mod func;
 #[cfg(feature = "std")]
 mod package;
 mod pipeline;

@@ -90,7 +90,7 @@ pin_project! {
 impl Future for ResponseIntoPackageFuture {
     type Output = Result<Package, Error>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let Some(resp) = this.resp.take() else {
             panic!("poll after done")
@@ -98,7 +98,7 @@ impl Future for ResponseIntoPackageFuture {
 
         let request_path = RelativePathBuf::from(resp.url().path());
 
-        let size = resp.content_length();
+        let _size = resp.content_length();
         let content_type = resp
             .headers()
             .get(reqwest::header::CONTENT_TYPE)

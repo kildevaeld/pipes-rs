@@ -77,7 +77,8 @@ where
 
         Poll::Ready(loop {
             if let Some(fut) = this.future.as_mut().as_pin_mut() {
-                let item = ready!(fut.poll(cx));
+                // TODO: What to do about errors
+                let _item = ready!(fut.poll(cx));
                 this.future.set(None);
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)) {
                 if let Ok(ok) = item {

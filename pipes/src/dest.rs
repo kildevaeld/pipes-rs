@@ -7,7 +7,7 @@ use futures::future::BoxFuture;
 use futures::{ready, Future, TryFuture};
 use pin_project_lite::pin_project;
 
-use crate::{Context, Error, IntoPackage, Package, Work};
+use crate::{Error, IntoPackage, Package, Work};
 
 pub trait Dest<T> {
     type Future<'a>: Future<Output = Result<(), Error>>

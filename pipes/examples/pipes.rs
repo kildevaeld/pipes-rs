@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use pipes::{
-    cond, dest_fn,
+    cond,
     fs::FsWork,
     http::{get, HttpWork},
     work_fn, Error, FsDest, NoopWork, Package, Pipeline, SourceExt, Unit, WorkExt,
@@ -32,7 +32,7 @@ async fn main() {
         .pipe(
             cond(
                 |pkg: &Package| pkg.mime() == &mime::TEXT_HTML_UTF_8,
-                work_fn(|ctx, mut pkg: Package| {
+                work_fn(|ctx, pkg: Package| {
                     async move {
                         //
                         // let bytes = pkg.take_content().bytes().await?;

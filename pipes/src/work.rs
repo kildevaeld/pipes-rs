@@ -1,15 +1,12 @@
-use alloc::boxed::Box;
 use core::{marker::PhantomData, task::Poll};
 use either::Either;
 use futures::{
-    future::{BoxFuture, LocalBoxFuture},
-    ready, Future, FutureExt, TryFuture,
+    ready, Future, TryFuture,
 };
 use pin_project_lite::pin_project;
 
 use crate::{
     and::And,
-    context::Context,
     error::Error,
     split::{Anyways, Split},
     then::Then,
