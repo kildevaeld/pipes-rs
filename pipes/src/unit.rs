@@ -1,4 +1,4 @@
-use core::task::Poll;
+use core::{mem::transmute, task::Poll};
 
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
@@ -65,15 +65,15 @@ pin_project! {
 impl<'a, S, T, C> Future for SourceUnitFure<'a, S, T, C>
 where
     T: Dest<S::Item> + 'a,
-    S: Source<C>,
+    S: Source<C> + 'a,
 {
     type Output = ();
 
     fn poll(
-        self: core::pin::Pin<&mut Self>,
+        mut self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> Poll<Self::Output> {
-        let mut this = self.project();
+        let mut this = self.as_mut().project();
 
         Poll::Ready(loop {
             if let Some(fut) = this.future.as_mut().as_pin_mut() {
@@ -81,7 +81,8 @@ where
                 this.future.set(None);
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)) {
                 if let Ok(ok) = item {
-                    this.future.set(Some(this.dest.call(ok)));
+                    this.future
+                        .set(Some(unsafe { transmute(this.dest.call(ok)) }));
                 }
             } else {
                 break ();

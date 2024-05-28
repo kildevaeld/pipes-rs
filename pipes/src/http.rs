@@ -66,11 +66,10 @@ impl HttpWork {
 impl<C> Work<C, Request> for HttpWork {
     type Output = Response;
 
-    type Future = BoxFuture<'static, Result<Self::Output, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
 
-    fn call(&self, _ctx: C, package: Request) -> Self::Future {
-        let client = self.client.clone();
-        async move { client.execute(package).await.map_err(Error::new) }.boxed()
+    fn call<'a>(&'a self, _ctx: C, package: Request) -> Self::Future<'a> {
+        async move { self.client.execute(package).await.map_err(Error::new) }.boxed()
     }
 }
 

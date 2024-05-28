@@ -48,9 +48,9 @@ where
     R: Send + 'static,
 {
     type Output = U::Ok;
-    type Future = BoxFuture<'static, Result<U::Ok, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<U::Ok, Error>>;
 
-    fn call(&self, ctx: C, package: R) -> Self::Future {
+    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         let work = self.task.clone();
         let func = self.func.clone();
         Box::pin(async move { (func)(ctx, package, work).map_err(Into::into).await })

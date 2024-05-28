@@ -42,21 +42,21 @@ impl<S, L, R> Split<S, L, R> {
 
 impl<S, L, R, C, T> Work<C, T> for Split<S, L, R>
 where
-    S: Work<C, T>,
+    S: Work<C, T> + 'static,
     S::Output: Anyways,
-    L: Work<C, <S::Output as Anyways>::Left> + Clone,
-    R: Work<C, <S::Output as Anyways>::Right, Output = L::Output> + Clone,
+    L: Work<C, <S::Output as Anyways>::Left> + Clone + 'static,
+    R: Work<C, <S::Output as Anyways>::Right, Output = L::Output> + Clone + 'static,
     C: Clone,
 {
     type Output = L::Output;
 
-    type Future = SplitFuture<S, L, R, C, T>;
+    type Future<'a> = SplitFuture<'a, S, L, R, C, T>;
 
-    fn call(&self, ctx: C, package: T) -> Self::Future {
+    fn call<'a>(&'a self, ctx: C, package: T) -> Self::Future<'a> {
         SplitFuture::Init {
             future: self.splitter.call(ctx.clone(), package),
-            left: self.left.clone(),
-            right: self.right.clone(),
+            left: &self.left,
+            right: &self.right,
             ctx: Some(ctx),
         }
     }
@@ -64,7 +64,7 @@ where
 
 pin_project! {
     #[project = SplitFutureProj]
-    pub enum SplitFuture<S, L, R, C, T>
+    pub enum SplitFuture<'a, S: 'static, L: 'static, R: 'static, C, T>
     where
     S: Work<C, T>,
     S::Output: Anyways,
@@ -73,19 +73,19 @@ pin_project! {
     {
         Init {
             #[pin]
-            future: S::Future,
-            left: L,
-            right: R,
+            future: S::Future<'a>,
+            left:  &'a L,
+            right: &'a R,
             ctx: Option<C>
         },
         Next {
             #[pin]
-            future: futures::future::Either<L::Future, R::Future>
+            future: futures::future::Either<L::Future<'a>, R::Future<'a>>
         }
     }
 }
 
-impl<S, L, R, C, T> Future for SplitFuture<S, L, R, C, T>
+impl<'a, S, L, R, C, T> Future for SplitFuture<'a, S, L, R, C, T>
 where
     S: Work<C, T>,
     S::Output: Anyways,

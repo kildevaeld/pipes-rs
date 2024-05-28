@@ -31,10 +31,13 @@ impl<C> Clone for ImageOp<C> {
     }
 }
 
-impl<C> Work<C, Image> for ImageOp<C> {
+impl<C> Work<C, Image> for ImageOp<C>
+where
+    C: 'static,
+{
     type Output = Image;
-    type Future = SpawnBlockFuture<Image>;
-    fn call(&self, _ctx: C, image: Image) -> Self::Future {
+    type Future<'a> = SpawnBlockFuture<Image>;
+    fn call<'a>(&'a self, _ctx: C, image: Image) -> Self::Future<'a> {
         let ops = self.0.clone();
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -58,18 +61,18 @@ impl<C> Work<C, Image> for ImageOp<C> {
     }
 }
 
-pub fn filter<C>(
-) -> impl Work<C, Package, Output = Option<Package>, Future = impl Future + Send> + Sync + Send + Copy
-{
-    work_fn(|_ctx: C, pkg: Package| async move {
-        let mime = pkg.mime();
-        if mime.type_() == mime::IMAGE {
-            Result::<_, Error>::Ok(Some(pkg))
-        } else {
-            Ok(None)
-        }
-    })
-}
+// pub fn filter<C>(
+// ) -> impl Work<C, Package, Output = Option<Package>, Future = impl Future + Send> + Sync + Send + Copy
+// {
+//     work_fn(|_ctx: C, pkg: Package| async move {
+//         let mime = pkg.mime();
+//         if mime.type_() == mime::IMAGE {
+//             Result::<_, Error>::Ok(Some(pkg))
+//         } else {
+//             Ok(None)
+//         }
+//     })
+// }
 
 pub fn save<C>(format: Format) -> Save<C> {
     Save {
@@ -145,10 +148,13 @@ impl<C> Clone for Save<C> {
 
 impl<C> Copy for Save<C> {}
 
-impl<C> Work<C, Image> for Save<C> {
+impl<C> Work<C, Image> for Save<C>
+where
+    C: 'static,
+{
     type Output = Package;
-    type Future = SpawnBlockFuture<Package>;
-    fn call(&self, _ctx: C, img: Image) -> Self::Future {
+    type Future<'a> = SpawnBlockFuture<Package>;
+    fn call<'a>(&'a self, _ctx: C, img: Image) -> Self::Future<'a> {
         let format = self.format;
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -217,12 +223,15 @@ impl<C> Default for ImageWork<C> {
     }
 }
 
-impl<C> Work<C, Package> for ImageWork<C> {
+impl<C> Work<C, Package> for ImageWork<C>
+where
+    for<'a> C: 'a,
+{
     type Output = Image;
 
-    type Future = BoxFuture<'static, Result<Self::Output, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
 
-    fn call(&self, _ctx: C, mut pkg: Package) -> Self::Future {
+    fn call<'a>(&'a self, _ctx: C, mut pkg: Package) -> Self::Future<'a> {
         Box::pin(async move {
             let bytes = pkg.take_content().bytes().await?;
 

@@ -51,9 +51,9 @@ where
     for<'a> <S::Item as AsyncClone>::Future<'a>: Send,
     T1::Output: Send,
     T1: Work<C, S::Item> + 'static + Clone + Send,
-    T1::Future: Send,
+    for<'a> T1::Future<'a>: Send,
     T2: Work<C, S::Item, Output = T1::Output> + 'static + Clone + Send,
-    T2::Future: Send,
+    for<'a> T2::Future<'a>: Send,
     for<'a> C: Send + 'a,
     C: Clone,
 {

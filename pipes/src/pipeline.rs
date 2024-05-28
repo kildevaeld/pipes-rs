@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, task::Poll};
+use core::{marker::PhantomData, mem::transmute, task::Poll};
 
 use async_stream::try_stream;
 use futures::{
@@ -87,13 +87,13 @@ impl<S, W, C> Pipeline<S, W, C> {
 
 impl<S, W, C> Source<C> for Pipeline<S, W, C>
 where
-    S: Source<C>,
-    W: Work<C, S::Item> + 'static,
-    C: Clone,
-    for<'a> C: 'a,
+    S: Source<C> + 'static,
+    W: Work<C, S::Item> + 'static + Clone,
+    C: Clone + 'static,
+    // for<'a> C: 'a,
 {
     type Item = W::Output;
-    type Stream<'a> = PipelineStream<S::Stream<'a>, W, C, S::Item> where S: 'a;
+    type Stream<'a> = PipelineStream<'a, S, W, C>;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         PipelineStream {
@@ -106,28 +106,29 @@ where
 }
 
 pin_project! {
-    pub struct PipelineStream<T, W, C, R> where W: Work<C,R> {
+    pub struct PipelineStream<'a, T: 'static, W: 'static, C> where W: Work<C, T::Item>, T: Source<C> {
         #[pin]
-        stream: T,
+        stream: T::Stream<'a>,
         work: W,
         #[pin]
-        future: Option<W::Future>,
+        future: Option<W::Future<'static>>,
         ctx: C
     }
 }
 
-impl<T, W, C, R> Stream for PipelineStream<T, W, C, R>
+impl<'a, T: 'static, W: 'static, C> Stream for PipelineStream<'a, T, W, C>
 where
-    W: Work<C, R>,
-    T: Stream<Item = Result<R, Error>>,
+    W: Work<C, T::Item> + Clone,
+    T: Source<C>,
     C: Clone,
+    Self: 'a,
 {
     type Item = Result<W::Output, Error>;
     fn poll_next(
-        self: core::pin::Pin<&mut Self>,
+        mut self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Option<Self::Item>> {
-        let mut this = self.project();
+        let mut this = self.as_mut().project();
 
         Poll::Ready(loop {
             if let Some(fut) = this.future.as_mut().as_pin_mut() {
@@ -135,8 +136,9 @@ where
                 this.future.set(None);
                 break Some(item);
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)?) {
-                this.future
-                    .set(Some(this.work.call(this.ctx.clone(), item)));
+                this.future.set(Some(unsafe {
+                    transmute(this.work.call(this.ctx.clone(), item))
+                }));
             } else {
                 break None;
             }
@@ -156,9 +158,9 @@ where
     S: Source<C> + Send + 'static,
     for<'a> S::Stream<'a>: Send,
     S::Item: Send,
-    W: Work<C, S::Item> + Send + Sync + 'static,
+    W: Work<C, S::Item> + Clone + Send + Sync + 'static,
     W::Output: Send,
-    W::Future: Send,
+    for<'a> W::Future<'a>: Send,
     for<'a> C: Send + 'a,
     C: Clone,
 {
@@ -179,7 +181,7 @@ where
                         let ctx = ctx.clone();
                         queue.push(async  {
                             let next = next?;
-                            self.work.call(ctx, next).await
+                            self.work.clone().call(ctx, next).await
                         });
 
                     }

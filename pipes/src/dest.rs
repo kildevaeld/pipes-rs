@@ -15,7 +15,7 @@ pub trait Dest<T> {
         Self: 'a,
         T: 'a;
 
-    fn call<'a>(&self, req: T) -> Self::Future<'a>;
+    fn call<'a>(&'a self, req: T) -> Self::Future<'a>;
 }
 
 pub fn dest_fn<T>(func: T) -> DestFn<T> {
@@ -33,7 +33,7 @@ where
     for<'a> R: 'a,
 {
     type Future<'a> = DestFnFuture<U>;
-    fn call<'a>(&self, package: R) -> Self::Future<'a> {
+    fn call<'a>(&'a self, package: R) -> Self::Future<'a> {
         DestFnFuture {
             future: (self.0)(package),
         }
@@ -68,7 +68,7 @@ where
 #[cfg(feature = "tokio")]
 impl<T: Send + 'static> Dest<T> for tokio::sync::mpsc::Sender<T> {
     type Future<'a> = BoxFuture<'a, Result<(), Error>>;
-    fn call<'a>(&self, args: T) -> Self::Future<'a> {
+    fn call<'a>(&'a self, args: T) -> Self::Future<'a> {
         let sx = self.clone();
         Box::pin(async move {
             sx.send(args)
@@ -81,7 +81,7 @@ impl<T: Send + 'static> Dest<T> for tokio::sync::mpsc::Sender<T> {
 #[cfg(feature = "async-channel")]
 impl<T: Send + 'static> Dest<T> for async_channel::Sender<T> {
     type Future<'a> = BoxFuture<'a, Result<(), Error>>;
-    fn call<'a>(&self, args: T) -> Self::Future<'a> {
+    fn call<'a>(&'a self, args: T) -> Self::Future<'a> {
         let sx = self.clone();
         Box::pin(async move {
             sx.send(args)
@@ -112,14 +112,18 @@ where
 {
     type Future<'a> = BoxFuture<'a, Result<(), Error>>;
 
-    fn call<'a>(&self, req: T) -> Self::Future<'a> {
-        let path = self.path.clone();
+    fn call<'a>(&'a self, req: T) -> Self::Future<'a> {
         Box::pin(async move {
             //
-            if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
-                tokio::fs::create_dir_all(&path).await.map_err(Error::new)?
+            if !tokio::fs::try_exists(&self.path)
+                .await
+                .map_err(Error::new)?
+            {
+                tokio::fs::create_dir_all(&self.path)
+                    .await
+                    .map_err(Error::new)?
             }
-            req.into_package().await?.write_to(&path).await
+            req.into_package().await?.write_to(&self.path).await
         })
     }
 }
@@ -132,9 +136,9 @@ where
 {
     type Output = Package;
 
-    type Future = BoxFuture<'static, Result<Package, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
 
-    fn call(&self, _ctx: C, req: T) -> Self::Future {
+    fn call<'a>(&'a self, _ctx: C, req: T) -> Self::Future<'a> {
         let path = self.path.clone();
         Box::pin(async move {
             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {

@@ -39,9 +39,9 @@ impl core::ops::Deref for File {
 impl<C> Work<C, PathBuf> for FsWork {
     type Output = File;
 
-    type Future = BoxFuture<'static, Result<Self::Output, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
 
-    fn call(&self, _ctx: C, package: PathBuf) -> Self::Future {
+    fn call<'a>(&'a self, _ctx: C, package: PathBuf) -> Self::Future<'a> {
         Box::pin(async move {
             let file = tokio::fs::File::open(&package).await.map_err(Error::new)?;
 

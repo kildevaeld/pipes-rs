@@ -21,28 +21,31 @@ use super::{IntoPackage, Package};
 
 pub trait Work<C, T> {
     type Output;
-    type Future: Future<Output = Result<Self::Output, Error>>;
-    fn call(&self, ctx: C, package: T) -> Self::Future;
+    type Future<'a>: Future<Output = Result<Self::Output, Error>>
+    where
+        Self: 'a;
+
+    fn call<'a>(&'a self, ctx: C, package: T) -> Self::Future<'a>;
 }
 
 pub trait WorkExt<C, T>: Work<C, T> {
-    fn boxed(self) -> WorkBox<C, T, Self::Output>
-    where
-        Self: Sized + Send + 'static,
-        Self::Future: Send + 'static,
-        T: Send + 'static,
-    {
-        Box::new(BoxedWorker(self))
-    }
+    // fn boxed(self) -> WorkBox<C, T, Self::Output>
+    // where
+    //     Self: Sized + Send + 'static,
+    //     for<'a> Self::Future<'a>: Send,
+    //     T: Send + 'static,
+    // {
+    //     Box::new(BoxedWorker(self))
+    // }
 
-    fn boxed_local(self) -> LocalWorkBox<C, T, Self::Output>
-    where
-        Self: Sized + Send + 'static,
-        Self::Future: Send + 'static,
-        T: Send + 'static,
-    {
-        Box::new(LocalBoxedWorker(self))
-    }
+    // fn boxed_local(self) -> LocalWorkBox<C, T, Self::Output>
+    // where
+    //     Self: Sized + Send + 'static,
+    //     for<'a> Self::Future<'a>: Send,
+    //     T: Send + 'static,
+    // {
+    //     Box::new(LocalBoxedWorker(self))
+    // }
 
     #[cfg(feature = "std")]
     fn into_package(self) -> IntoPackageWork<Self, C>
@@ -99,10 +102,10 @@ impl<T, R, C> WorkExt<C, R> for T where T: Work<C, R> {}
 #[derive(Debug, Clone, Copy)]
 pub struct NoopWork;
 
-impl<C, R> Work<C, R> for NoopWork {
+impl<C, R: 'static> Work<C, R> for NoopWork {
     type Output = R;
-    type Future = futures::future::Ready<Result<R, Error>>;
-    fn call(&self, _ctx: C, package: R) -> Self::Future {
+    type Future<'a> = futures::future::Ready<Result<R, Error>>;
+    fn call<'a>(&'a self, _ctx: C, package: R) -> Self::Future<'a> {
         futures::future::ready(Ok(package))
     }
 }
@@ -121,13 +124,13 @@ pub struct WorkFn<T>(pub(crate) T);
 
 impl<T, U, C, R> Work<C, R> for WorkFn<T>
 where
-    T: Fn(C, R) -> U,
+    T: Fn(C, R) -> U + 'static,
     U: TryFuture,
     U::Error: Into<Error>,
 {
     type Output = U::Ok;
-    type Future = WorkFnFuture<U>;
-    fn call(&self, ctx: C, package: R) -> Self::Future {
+    type Future<'a> = WorkFnFuture<U> where Self: 'a;
+    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         WorkFnFuture {
             future: (self.0)(ctx, package),
         }
@@ -159,44 +162,44 @@ where
     }
 }
 
-pub type WorkBox<C, R, O> =
-    Box<dyn Work<C, R, Output = O, Future = BoxFuture<'static, Result<O, Error>>> + Send>;
+// pub type WorkBox<C, R, O> =
+//     Box<dyn Work<C, R, Output = O, Future = BoxFuture<'static, Result<O, Error>>> + Send>;
 
-pub type LocalWorkBox<C, R, O> =
-    Box<dyn Work<C, R, Output = O, Future = LocalBoxFuture<'static, Result<O, Error>>>>;
+// pub type LocalWorkBox<C, R, O> =
+//     Box<dyn Work<C, R, Output = O, Future = LocalBoxFuture<'static, Result<O, Error>>>>;
 
-pub struct BoxedWorker<T>(T);
+// pub struct BoxedWorker<T>(T);
 
-impl<T, C, R> Work<C, R> for BoxedWorker<T>
-where
-    T: Work<C, R>,
-    T::Future: Send + 'static,
-    R: Send + 'static,
-{
-    type Output = T::Output;
+// impl<T, C, R> Work<C, R> for BoxedWorker<T>
+// where
+//     T: Work<C, R>,
+//     T::Future: Send + 'static,
+//     R: Send + 'static,
+// {
+//     type Output = T::Output;
 
-    type Future = BoxFuture<'static, Result<T::Output, Error>>;
+//     type Future = BoxFuture<'static, Result<T::Output, Error>>;
 
-    fn call(&self, ctx: C, package: R) -> Self::Future {
-        self.0.call(ctx, package).boxed()
-    }
-}
+//     fn call(&self, ctx: C, package: R) -> Self::Future {
+//         self.0.call(ctx, package).boxed()
+//     }
+// }
 
-pub struct LocalBoxedWorker<T>(T);
+// pub struct LocalBoxedWorker<T>(T);
 
-impl<T, C, R> Work<C, R> for LocalBoxedWorker<T>
-where
-    T: Work<C, R>,
-    T::Future: 'static,
-{
-    type Output = T::Output;
+// impl<T, C, R> Work<C, R> for LocalBoxedWorker<T>
+// where
+//     T: Work<C, R>,
+//     T::Future: 'static,
+// {
+//     type Output = T::Output;
 
-    type Future = LocalBoxFuture<'static, Result<T::Output, Error>>;
+//     type Future = LocalBoxFuture<'static, Result<T::Output, Error>>;
 
-    fn call(&self, ctx: C, package: R) -> Self::Future {
-        self.0.call(ctx, package).boxed_local()
-    }
-}
+//     fn call(&self, ctx: C, package: R) -> Self::Future {
+//         self.0.call(ctx, package).boxed_local()
+//     }
+// }
 
 #[cfg(feature = "std")]
 #[derive(Debug)]
@@ -225,12 +228,13 @@ impl<T, C, R> Work<C, R> for IntoPackageWork<T, C>
 where
     T: Work<C, R>,
     T::Output: IntoPackage,
+    C: 'static,
 {
     type Output = Package;
 
-    type Future = IntoPackageWorkFuture<T::Future>;
+    type Future<'a> = IntoPackageWorkFuture<T::Future<'a>> where Self: 'a;
 
-    fn call(&self, ctx: C, package: R) -> Self::Future {
+    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         IntoPackageWorkFuture::Work {
             future: self.worker.call(ctx, package),
         }
@@ -302,9 +306,9 @@ where
 {
     type Output = Either<T1::Output, T2::Output>;
 
-    type Future = EitherWorkFuture<T1, T2, C, T>;
+    type Future<'a> = EitherWorkFuture<'a, T1, T2, C, T> where Self: 'a;
 
-    fn call(&self, ctx: C, package: T) -> Self::Future {
+    fn call<'a>(&'a self, ctx: C, package: T) -> Self::Future<'a> {
         match self {
             Self::Left(left) => EitherWorkFuture::T1 {
                 future: left.call(ctx, package),
@@ -318,22 +322,22 @@ where
 
 pin_project! {
     #[project = EitherFutureProj]
-    pub enum EitherWorkFuture<T1, T2, C, T> where T1: Work<C, T>, T2: Work<C, T> {
+    pub enum EitherWorkFuture<'a, T1:'a, T2: 'a, C, T> where T1: Work<C, T>, T2: Work<C, T> {
         T1 {
             #[pin]
-            future: T1::Future
+            future: T1::Future<'a>
         },
         T2 {
             #[pin]
-            future: T2::Future
+            future: T2::Future<'a>
         }
     }
 }
 
-impl<T1, T2, C, T> Future for EitherWorkFuture<T1, T2, C, T>
+impl<'a, T1, T2, C, T> Future for EitherWorkFuture<'a, T1, T2, C, T>
 where
-    T1: Work<C, T>,
-    T2: Work<C, T>,
+    T1: Work<C, T> + 'a,
+    T2: Work<C, T> + 'a,
 {
     type Output = Result<Either<T1::Output, T2::Output>, Error>;
 

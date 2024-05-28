@@ -17,16 +17,16 @@ impl<T1, T2> And<T1, T2> {
 
 impl<T1, T2, C, R> Work<C, R> for And<T1, T2>
 where
-    T1: Work<C, R>,
-    T2: Work<C, T1::Output> + Clone,
+    T1: Work<C, R> + 'static,
+    T2: Work<C, T1::Output> + 'static,
     C: Clone,
 {
     type Output = T2::Output;
-    type Future = AndWorkFuture<T1, T2, C, R>;
-    fn call(&self, ctx: C, package: R) -> Self::Future {
+    type Future<'a> = AndWorkFuture<'a, T1, T2, C, R>;
+    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         AndWorkFuture::Left {
             future: self.left.call(ctx.clone(), package),
-            next: Some(self.right.clone()),
+            next: &self.right,
             ctx: Some(ctx),
         }
     }
@@ -62,26 +62,26 @@ where
 
 pin_project! {
     #[project = AndWorkProject]
-    pub enum AndWorkFuture<T1, T2, C, R>
+    pub enum AndWorkFuture<'a, T1: 'static, T2: 'static, C, R>
     where
     T1: Work<C, R>,
     T2: Work<C,T1::Output>,
     {
         Left {
             #[pin]
-            future: T1::Future,
-            next: Option<T2>,
+            future: T1::Future<'a>,
+            next: &'a T2,
             ctx: Option<C>,
         },
         Right {
             #[pin]
-            future: T2::Future,
+            future: T2::Future<'a>,
         },
         Done
     }
 }
 
-impl<T1, T2, C, R> Future for AndWorkFuture<T1, T2, C, R>
+impl<'a, T1, T2, C, R> Future for AndWorkFuture<'a, T1, T2, C, R>
 where
     T1: Work<C, R>,
     T2: Work<C, T1::Output>,
@@ -105,11 +105,9 @@ where
                         }
                     };
 
-                    let next = next.take().unwrap();
                     let ctx = ctx.take().unwrap();
-                    self.set(AndWorkFuture::Right {
-                        future: next.call(ctx, ret),
-                    });
+                    let future = next.call(ctx, ret);
+                    self.set(AndWorkFuture::Right { future });
                 }
                 AndWorkProject::Right { future } => {
                     let ret = ready!(future.poll(cx));

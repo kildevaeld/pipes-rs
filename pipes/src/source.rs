@@ -1,4 +1,4 @@
-use core::{future::ready, task::Poll};
+use core::{future::ready, mem::transmute, task::Poll};
 
 use alloc::{string::ToString, sync::Arc};
 use either::Either;
@@ -297,7 +297,7 @@ impl<T, W> Filter<T, W> {
 impl<T, W: 'static, C> Source<C> for Filter<T, W>
 where
     T: Source<C>,
-    W: Work<C, T::Item, Output = Option<T::Item>>,
+    W: Work<C, T::Item, Output = Option<T::Item>> + Clone,
     C: Clone,
 {
     type Item = T::Item;
@@ -315,19 +315,19 @@ where
 }
 
 pin_project! {
-    pub struct FilterStream<'a, T: 'a, W, C> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
+    pub struct FilterStream<'a, T: 'a, W: 'static, C> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
         #[pin]
         stream: T::Stream<'a>,
         work: W,
         #[pin]
-        future: Option<W::Future>,
+        future: Option<W::Future<'a>>,
         ctx: C
     }
 }
 
 impl<'a, T, W, C> Stream for FilterStream<'a, T, W, C>
 where
-    W: Work<C, T::Item, Output = Option<T::Item>>,
+    W: Work<C, T::Item, Output = Option<T::Item>> + Clone,
     T: Source<C>,
     C: Clone,
 {
@@ -348,8 +348,9 @@ where
                     _ => {}
                 }
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)?) {
-                this.future
-                    .set(Some(this.work.call(this.ctx.clone(), item)));
+                this.future.set(Some(unsafe {
+                    transmute(this.work.call(this.ctx.clone(), item))
+                }));
             } else {
                 break None;
             }

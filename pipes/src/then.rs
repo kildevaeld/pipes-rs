@@ -1,4 +1,4 @@
-use core::task::Poll;
+use core::{mem::transmute, task::Poll};
 
 use futures::{ready, Future, Stream};
 use pin_project_lite::pin_project;
@@ -19,18 +19,18 @@ impl<T1, T2> Then<T1, T2> {
 
 impl<T1, T2, C, R> Work<C, R> for Then<T1, T2>
 where
-    T1: Work<C, R>,
-    T2: Work<C, Result<T1::Output, Error>> + Clone,
+    T1: Work<C, R> + 'static,
+    T2: Work<C, Result<T1::Output, Error>> + Clone + 'static,
     C: Clone,
 {
     type Output = T2::Output;
 
-    type Future = ThenWorkFuture<T1, T2, C, R>;
+    type Future<'a> = ThenWorkFuture<'a, T1, T2, C, R>;
 
-    fn call(&self, ctx: C, package: R) -> Self::Future {
+    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         ThenWorkFuture::Left {
             future: self.left.call(ctx.clone(), package),
-            next: Some(self.right.clone()),
+            next: &self.right,
             ctx: Some(ctx),
         }
     }
@@ -44,40 +44,40 @@ where
 {
     type Item = T2::Output;
 
-    type Stream<'a> = ThenStream<T1::Stream<'a>, T2, C, T1::Item>;
+    type Stream<'a> = ThenStream<'a, T1, T2, C>;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         ThenStream {
             stream: self.left.call(ctx.clone()),
-            work: self.right.clone(),
+            work: self.right,
             future: None,
-            ctx: ctx,
+            ctx,
         }
     }
 }
 
 pin_project! {
     #[project = ThenWorkProject]
-    pub enum ThenWorkFuture<T1, T2, C, R>
+    pub enum ThenWorkFuture<'a, T1: 'static , T2: 'static, C, R>
     where
     T1: Work<C, R>,
     T2: Work<C,Result<T1::Output, Error>>,
     {
         Left {
             #[pin]
-            future: T1::Future,
-            next: Option<T2>,
+            future: T1::Future<'a>,
+            next: &'a T2,
             ctx: Option<C>,
         },
         Right {
             #[pin]
-            future: T2::Future,
+            future: T2::Future<'a>,
         },
         Done
     }
 }
 
-impl<T1, T2, C, R> Future for ThenWorkFuture<T1, T2, C, R>
+impl<'a, T1, T2, C, R> Future for ThenWorkFuture<'a, T1, T2, C, R>
 where
     T1: Work<C, R>,
     T2: Work<C, Result<T1::Output, Error>>,
@@ -95,13 +95,12 @@ where
                 ThenWorkProject::Left { future, next, ctx } => {
                     let ret = ready!(future.poll(cx));
 
-                    let next = next.take().expect("next");
+                    // let next = next.take().expect("next");
                     let ctx = ctx.take().expect("context");
-                    self.set(ThenWorkFuture::Right {
-                        future: next.call(ctx, ret),
-                    });
+                    let future = next.call(ctx, ret);
+                    self.set(ThenWorkFuture::Right { future });
                 }
-                ThenWorkProject::Right { future } => {
+                ThenWorkProject::Right { future, .. } => {
                     let ret = ready!(future.poll(cx));
                     self.set(ThenWorkFuture::Done);
                     return Poll::Ready(ret);
@@ -115,28 +114,29 @@ where
 }
 
 pin_project! {
-    pub struct ThenStream<T, W , C, R> where W: Work<C,Result<R, Error>> {
+    pub struct ThenStream<'a, T: 'static, W: 'static , C> where W: Work<C,Result<T::Item, Error>>, T: Source<C> {
         #[pin]
-        stream: T,
+        stream: T::Stream<'a>,
         work: W,
         #[pin]
-        future: Option<W::Future>,
+        future: Option<W::Future<'a>>,
         ctx: C
     }
 }
 
-impl<T, W, C, R> Stream for ThenStream<T, W, C, R>
+impl<'a, T: 'static, W: 'static, C> Stream for ThenStream<'a, T, W, C>
 where
-    W: Work<C, Result<R, Error>>,
-    T: Stream<Item = Result<R, Error>>,
+    W: Work<C, Result<T::Item, Error>>,
+    T: Source<C>,
+    // T: Stream<Item = Result<R, Error>>,
     C: Clone,
 {
     type Item = Result<W::Output, Error>;
     fn poll_next(
-        self: core::pin::Pin<&mut Self>,
+        mut self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Option<Self::Item>> {
-        let mut this = self.project();
+        let mut this = self.as_mut().project();
 
         Poll::Ready(loop {
             if let Some(fut) = this.future.as_mut().as_pin_mut() {
@@ -144,8 +144,9 @@ where
                 this.future.set(None);
                 break Some(item);
             } else if let Some(item) = ready!(this.stream.as_mut().poll_next(cx)) {
-                this.future
-                    .set(Some(this.work.call(this.ctx.clone(), item)));
+                this.future.set(Some(unsafe {
+                    transmute(this.work.call(this.ctx.clone(), item))
+                }));
             } else {
                 break None;
             }
