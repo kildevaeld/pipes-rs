@@ -8,6 +8,7 @@ use futures::{future::BoxFuture, stream::BoxStream, Future, TryStreamExt};
 use mime::Mime;
 use pin_project_lite::pin_project;
 use relative_path::{RelativePath, RelativePathBuf};
+#[cfg(feature = "tokio")]
 use tokio::io::AsyncWriteExt;
 
 use crate::{cloned::AsyncClone, Error};
@@ -114,6 +115,7 @@ impl Package {
         })
     }
 
+    #[cfg(feature = "tokio")]
     pub async fn write_to(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         let mut file = tokio::fs::File::create(self.name.to_logical_path(path))
             .await

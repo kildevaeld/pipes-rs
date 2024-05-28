@@ -379,6 +379,7 @@ pub struct Producer<T> {
     sx: tokio::sync::mpsc::UnboundedSender<Result<T, Error>>,
 }
 
+#[cfg(feature = "tokio")]
 impl<T> Clone for Producer<T> {
     fn clone(&self) -> Self {
         Producer {
