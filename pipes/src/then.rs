@@ -114,6 +114,7 @@ where
 }
 
 pin_project! {
+    #[project(!Unpin)]
     pub struct ThenStream<'a, T: 'static, W: 'static , C> where W: Work<C,Result<T::Item, Error>>, T: Source<C> {
         #[pin]
         stream: T::Stream<'a>,

@@ -53,6 +53,7 @@ where
 }
 
 pin_project! {
+    #[project(!Unpin)]
     pub struct SourceUnitFure<'a, S: 'a, T:'a, C> where T: Dest<S::Item>, S: Source<C>, S::Item: 'a {
         #[pin]
         stream: S::Stream<'a>,

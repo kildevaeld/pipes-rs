@@ -313,6 +313,7 @@ where
 }
 
 pin_project! {
+    #[project(!Unpin)]
     pub struct FilterStream<'a, T: 'a, W: 'static, C> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
         #[pin]
         stream: T::Stream<'a>,

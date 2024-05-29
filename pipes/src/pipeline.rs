@@ -104,12 +104,13 @@ where
 }
 
 pin_project! {
+    #[project(!Unpin)]
     pub struct PipelineStream<'a, T: 'static, W: 'static, C> where W: Work<C, T::Item>, T: Source<C> {
         #[pin]
         stream: T::Stream<'a>,
         work: W,
         #[pin]
-        future: Option<W::Future<'static>>,
+        future: Option<W::Future<'a>>,
         ctx: C
     }
 }
