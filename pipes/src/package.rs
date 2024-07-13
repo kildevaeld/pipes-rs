@@ -1,5 +1,11 @@
-use core::task::Poll;
-use std::path::Path;
+use core::{
+    any::{Any, TypeId},
+    task::Poll,
+};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use alloc::boxed::Box;
 use bytes::{BufMut, Bytes, BytesMut};
@@ -15,7 +21,7 @@ use crate::{cloned::AsyncClone, Error};
 
 pub enum Body {
     Bytes(Bytes),
-    // Path(PathBuf,)
+    Path(PathBuf),
     Stream(BoxStream<'static, Result<Bytes, Error>>),
     Empty,
 }
@@ -33,11 +39,14 @@ impl Body {
         if let Body::Stream(stream) = self {
             let mut buf = BytesMut::new();
 
-            while let Some(next) = stream.try_next().await.unwrap() {
+            while let Some(next) = stream.try_next().await.map_err(Error::new)? {
                 buf.put(next);
             }
 
             *self = Body::Bytes(buf.freeze());
+        } else if let Body::Path(path) = self {
+            let content = tokio::fs::read(path).await.map_err(Error::new)?;
+            *self = Body::Bytes(content.into());
         }
 
         Ok(())
@@ -54,8 +63,70 @@ impl Body {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct Meta {}
+trait ToAny {
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+    fn clone_box(&self) -> Box<dyn ToAny + Send>;
+    fn any_box(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T> ToAny for T
+where
+    T: Any + Clone + Send,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn ToAny + Send> {
+        Box::new(self.clone())
+    }
+
+    fn any_box(self: Box<Self>) -> Box<dyn Any> {
+        let this = *self;
+        Box::new(this)
+    }
+}
+
+#[derive(Default)]
+pub struct Meta {
+    values: HashMap<TypeId, Box<dyn ToAny + Send>>,
+}
+
+impl Meta {
+    pub fn insert<T: Clone + Send + 'static>(&mut self, value: T) -> Option<T> {
+        let old = self.values.insert(TypeId::of::<T>(), Box::new(value));
+        old.and_then(|m| m.any_box().downcast().ok().map(|m| *m))
+    }
+
+    pub fn get<T: 'static>(&self) -> Option<&T> {
+        self.values
+            .get(&TypeId::of::<T>())
+            .and_then(|m| m.as_any().downcast_ref::<T>())
+    }
+
+    pub fn get_mut<T: 'static>(&mut self) -> Option<&mut T> {
+        self.values
+            .get_mut(&TypeId::of::<T>())
+            .and_then(|m| m.as_any_mut().downcast_mut::<T>())
+    }
+}
+
+impl Clone for Meta {
+    fn clone(&self) -> Self {
+        let values = self
+            .values
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone_box()))
+            .collect::<HashMap<_, _>>();
+
+        Meta { values }
+    }
+}
 
 pub struct Package {
     name: RelativePathBuf,
@@ -70,7 +141,7 @@ impl Package {
             name: name.into(),
             mime,
             content: body.into(),
-            meta: Meta::default(),
+            meta: Default::default(),
         }
     }
 
@@ -115,27 +186,46 @@ impl Package {
         })
     }
 
+    pub fn meta(&self) -> &Meta {
+        &self.meta
+    }
+
+    pub fn meta_mut(&mut self) -> &mut Meta {
+        &mut self.meta
+    }
+
     #[cfg(feature = "tokio")]
     pub async fn write_to(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
-        let mut file = tokio::fs::File::create(self.name.to_logical_path(path))
-            .await
-            .map_err(Error::new)?;
+        let file_path = self.name.to_logical_path(path);
 
         match &mut self.content {
             Body::Bytes(bs) => {
+                let mut file = tokio::fs::File::create(file_path)
+                    .await
+                    .map_err(Error::new)?;
                 file.write_all(&*bs).await.map_err(Error::new)?;
+                file.flush().await.map_err(Error::new)?;
             }
             Body::Stream(ref mut stream) => {
+                let mut file = tokio::fs::File::create(file_path)
+                    .await
+                    .map_err(Error::new)?;
+
                 let mut bytes = BytesMut::new();
                 while let Some(next) = stream.try_next().await? {
                     file.write_all(&next).await.map_err(Error::new)?;
                     bytes.put(next);
                 }
+
+                self.content = Body::Bytes(bytes.freeze());
+
+                file.flush().await.map_err(Error::new)?;
+            }
+            Body::Path(path) => {
+                tokio::fs::copy(path, file_path).await.map_err(Error::new)?;
             }
             Body::Empty => {}
         }
-
-        file.flush().await.map_err(Error::new)?;
 
         Ok(())
     }

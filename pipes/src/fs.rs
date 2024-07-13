@@ -60,8 +60,9 @@ impl IntoPackage for File {
         Box::pin(async move {
             let path = RelativePathBuf::from_path(&self.path).map_err(Error::new)?;
             let mime = mime_guess::from_path(&self.path).first_or_octet_stream();
-            let stream = tokio_util::io::ReaderStream::new(self.content).map_err(Error::new);
-            Ok(Package::new(path, mime, Body::Stream(Box::pin(stream))))
+            // let stream = tokio_util::io::ReaderStream::new(self.content).map_err(Error::new);
+            // Ok(Package::new(path, mime, Body::Stream(Box::pin(stream))))
+            Ok(Package::new(path, mime, Body::Path(self.path.clone())))
         })
     }
 }
