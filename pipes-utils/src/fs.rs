@@ -57,3 +57,44 @@ impl Dest<Package> for Fs {
 
     type Future<'a> = BoxFuture<'a, Result<(), Error>>;
 }
+
+#[derive(Debug, Clone)]
+pub struct Cached<T> {
+    work: T,
+    root: PathBuf,
+}
+
+impl<T> Cached<T> {
+    pub fn new(root: PathBuf, work: T) -> Cached<T> {
+        Cached { work, root }
+    }
+}
+
+impl<W, C> Work<C, Package> for Cached<W>
+where
+    C: Send + 'static,
+    W: Work<C, Package, Output = Package> + Send + Sync + 'static,
+    for<'a> W::Future<'a>: Send,
+{
+    type Output = Package;
+
+    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
+    fn call<'a>(&'a self, ctx: C, package: Package) -> Self::Future<'a> {
+        Box::pin(async move {
+            let cache_path = package.path().to_logical_path(&self.root);
+
+            if tokio::fs::try_exists(&cache_path)
+                .await
+                .map_err(Error::new)?
+            {
+                let pkg = File::from_path(&cache_path).await?.into_package().await?;
+                Ok(pkg)
+            } else {
+                let mut pkg = self.work.call(ctx, package).await?;
+                pkg.write_to(&cache_path).await?;
+
+                Ok(pkg)
+            }
+        })
+    }
+}
