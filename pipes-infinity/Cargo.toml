@@ -1,0 +1,13 @@
+[package]
+name = "pipes-infinity"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pipes = { path = "../pipes", features = [] }
+infinitask = { path = "../infinitask" }
+async-trait = "0.1"
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
+async-stream = { version = "0.3" }
+async-channel = { version = "2" }
+tokio = { version = "1", features = ["rt"] }

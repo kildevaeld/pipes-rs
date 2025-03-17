@@ -38,7 +38,7 @@ async fn main() {
                         // let bytes = pkg.take_content().bytes().await?;
                         // let str = core::str::from_utf8(&bytes).map_err(Error::new)?;
 
-                        // println!("HTML: {}", str);
+                        println!("HTML: {}", pkg.name());
                         Result::<_, Error>::Ok(pkg)
                     }
                 }),
