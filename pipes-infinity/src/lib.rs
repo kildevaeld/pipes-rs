@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 
 use async_trait::async_trait;
 use futures::{StreamExt, stream::BoxStream};
-use infinitask::InifiniTask;
-use pipes::Source;
+use infinitask::{InifiniTask, TaskError};
+use pipes::{Producer, Source};
 
 pub struct InifiniSource<T, R>(T, PhantomData<R>);
 
@@ -27,10 +27,9 @@ where
         Self: 'a;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        async_stream::stream! {
+        let (producer, mut rx) = Producer::new();
 
-            let (sx, rx) = async_channel::unbounded();
-
+        tokio::spawn(async move {
             let tasks = InifiniTask::new(());
 
             tasks
@@ -40,18 +39,21 @@ where
                         let ret = Box::new(self.0)
                             .run(TaskCtx {
                                 inner: ctx,
-                                sx: sx.clone(),
+                                sx: producer.clone(),
                             })
                             .await;
 
-                        sx.send(ret).await.map_err(|err| panic!(""))
+                        producer.send(ret).map_err(TaskError::new)
                     }),
                 )
                 .await;
+        });
+
+        async_stream::stream! {
 
 
-            while let Ok(next) = rx.recv().await {
-                yield next
+            while let Some(next) = rx.recv().await {
+                yield next?
             }
 
 
@@ -60,10 +62,10 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct TaskCtx<C, R> {
     inner: infinitask::TaskCtx<C>,
-    sx: async_channel::Sender<Result<R, pipes::Error>>,
+    sx: Producer<Result<R, pipes::Error>>,
 }
 
 impl<C: Clone + Send + Sync + 'static, R> TaskCtx<C, R> {
@@ -77,7 +79,7 @@ impl<C: Clone + Send + Sync + 'static, R> TaskCtx<C, R> {
 
     pub async fn register<T>(&self, task: T)
     where
-        T: Task<C, R> + 'static + Send + Sync,
+        T: Task<C, R> + 'static,
         R: Send + 'static,
     {
         let sx = self.sx.clone();
@@ -91,14 +93,14 @@ impl<C: Clone + Send + Sync + 'static, R> TaskCtx<C, R> {
                     })
                     .await;
 
-                sx.send(ret).await.map_err(|err| panic!(""))
+                sx.send(ret).map_err(TaskError::new)
             }))
             .await;
     }
 }
 
 #[async_trait]
-pub trait Task<C, R> {
+pub trait Task<C, R>: Send + Sync {
     async fn run(self: Box<Self>, context: TaskCtx<C, R>) -> Result<R, pipes::Error>;
 }
 
@@ -106,6 +108,10 @@ pub struct TaskFn<C, F, U, R> {
     ph: PhantomData<(C, U, R)>,
     func: F,
 }
+
+unsafe impl<C, F: Send, U, R> Send for TaskFn<C, F, U, R> {}
+
+unsafe impl<C, F: Sync, U, R> Sync for TaskFn<C, F, U, R> {}
 
 #[async_trait]
 impl<C, F, U, R> Task<C, R> for TaskFn<C, F, U, R>

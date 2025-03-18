@@ -1,8 +1,6 @@
 use core::{marker::PhantomData, task::Poll};
 use either::Either;
-use futures::{
-    ready, Future, TryFuture,
-};
+use futures::{ready, Future, TryFuture};
 use pin_project_lite::pin_project;
 
 use crate::{
@@ -126,7 +124,10 @@ where
     U::Error: Into<Error>,
 {
     type Output = U::Ok;
-    type Future<'a> = WorkFnFuture<U> where Self: 'a;
+    type Future<'a>
+        = WorkFnFuture<U>
+    where
+        Self: 'a;
     fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         WorkFnFuture {
             future: (self.0)(ctx, package),
@@ -205,8 +206,10 @@ pub struct IntoPackageWork<T, C> {
     ctx: PhantomData<C>,
 }
 
+#[cfg(feature = "std")]
 impl<T: Copy, C> Copy for IntoPackageWork<T, C> {}
 
+#[cfg(feature = "std")]
 impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
     fn clone(&self) -> Self {
         IntoPackageWork {
@@ -216,8 +219,10 @@ impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
     }
 }
 
+#[cfg(feature = "std")]
 unsafe impl<T: Send, C> Send for IntoPackageWork<T, C> {}
 
+#[cfg(feature = "std")]
 unsafe impl<T: Sync, C> Sync for IntoPackageWork<T, C> {}
 
 #[cfg(feature = "std")]
@@ -229,7 +234,10 @@ where
 {
     type Output = Package;
 
-    type Future<'a> = IntoPackageWorkFuture<T::Future<'a>> where Self: 'a;
+    type Future<'a>
+        = IntoPackageWorkFuture<T::Future<'a>>
+    where
+        Self: 'a;
 
     fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
         IntoPackageWorkFuture::Work {
@@ -303,7 +311,10 @@ where
 {
     type Output = Either<T1::Output, T2::Output>;
 
-    type Future<'a> = EitherWorkFuture<'a, T1, T2, C, T> where Self: 'a;
+    type Future<'a>
+        = EitherWorkFuture<'a, T1, T2, C, T>
+    where
+        Self: 'a;
 
     fn call<'a>(&'a self, ctx: C, package: T) -> Self::Future<'a> {
         match self {

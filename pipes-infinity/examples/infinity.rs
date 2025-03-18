@@ -16,7 +16,7 @@ pub fn pipe<C, T>(source: T) -> Pipeline<T, NoopWork, C> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    pipe(InifiniSource::new(task_fn(|ctx| async move {
+    pipe::<(), _>(InifiniSource::new(task_fn(|ctx| async move {
         ctx.register(task_fn(|ctx| async move {
             //
             Ok("Next hello")
@@ -30,20 +30,27 @@ async fn main() {
         .await;
         Ok("Hello, World!")
     })))
-    .and(InifiniSource::new(task_fn(|ctx| async move {
-        ctx.register(task_fn(|ctx| async move {
-            //
-            Ok("Next hello 1")
-        }))
-        .await;
+    .and(
+        InifiniSource::new(task_fn(|ctx| async move {
+            ctx.register(task_fn(|ctx| async move {
+                //
+                Ok(futures::stream::once(async move { Ok("Next hello 1") }).boxed())
+            }))
+            .await;
 
-        ctx.register(task_fn(|ctx| async move {
-            //
-            Ok("Next hello 22")
+            ctx.register(task_fn(|ctx| async move {
+                //
+                Ok(futures::stream::iter([Ok("Next hello 122"), Ok("Next hello 333")]).boxed())
+            }))
+            .await;
+            Ok(futures::stream::once(async move { Ok("Hello, Worldsource!") }).boxed())
         }))
-        .await;
-        Ok("Hello, Worldsource!")
-    })))
+        .flatten(),
+    )
+    .pipe(work_fn(|ctx, pkg| async move {
+        //
+        Result::<_, pipes::Error>::Ok(pkg)
+    }))
     .dest(dest_fn(|ret| async move {
         println!("{}", ret);
         Result::<_, pipes::Error>::Ok(())

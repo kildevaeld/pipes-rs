@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pipes = { path = "../pipes", features = [] }
+pipes = { path = "../pipes", features = ["tokio"] }
 infinitask = { path = "../infinitask" }
 async-trait = "0.1"
 futures = { version = "0.3", default-features = false, features = ["alloc"] }

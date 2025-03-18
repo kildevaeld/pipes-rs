@@ -225,7 +225,11 @@ where
 {
     type Item = Either<T1::Item, T2::Item>;
 
-    type Stream<'a> = EitherSourceStream<'a, T1, T2, C> where T1: 'a, T2: 'a;
+    type Stream<'a>
+        = EitherSourceStream<'a, T1, T2, C>
+    where
+        T1: 'a,
+        T2: 'a;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         match self {
@@ -300,7 +304,11 @@ where
 {
     type Item = T::Item;
 
-    type Stream<'a> = FilterStream<'a, T, W, C> where T:'a, W: 'a;
+    type Stream<'a>
+        = FilterStream<'a, T, W, C>
+    where
+        T: 'a,
+        W: 'a;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         FilterStream {
@@ -368,7 +376,10 @@ where
 {
     type Item = <S::Item as TryStream>::Ok;
 
-    type Stream<'a> = TryFlatten<S::Stream<'a>> where S: 'a;
+    type Stream<'a>
+        = TryFlatten<S::Stream<'a>>
+    where
+        S: 'a;
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         self.source.call(ctx).try_flatten()
@@ -376,6 +387,7 @@ where
 }
 
 #[cfg(feature = "tokio")]
+#[derive(Debug)]
 pub struct Producer<T> {
     sx: tokio::sync::mpsc::UnboundedSender<Result<T, Error>>,
 }
