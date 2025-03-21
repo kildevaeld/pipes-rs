@@ -12,10 +12,11 @@ mod bindings;
 
 pub struct Kravl {
     pool: klaver::pool::Pool,
+    destination: PathBuf
 }
 
 impl Kravl {
-    pub async fn new() -> Result<Kravl, RuntimeError> {
+    pub async fn new(destination: PathBuf) -> Result<Kravl, RuntimeError> {
         let modules = klaver::Options::default()
             .module::<klaver_dom::Module>()
             .module::<klaver_fs::Module>()
@@ -42,7 +43,7 @@ impl Kravl {
         .build()
         .unwrap();
 
-        Ok(Kravl { pool })
+        Ok(Kravl { pool, destination })
     }
 
     pub async fn run(&self, paths: impl Into<Vec<String>>) -> Result<(), pipes::Error> {
@@ -64,7 +65,7 @@ impl Kravl {
                    
                         let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((v, path)).catch(&ctx)?;
 
-                        while let Some(next) = ret.next().await? {
+                        while let Some(next) = ret.next().await.catch(&ctx)? {
                             let pkg = next.into_package(&ctx).await?;
                             producer.send(pkg).unwrap();
                         }
@@ -79,11 +80,11 @@ impl Kravl {
         drop(producer);
 
         Pipeline::<_, _, ()>::new(rx)
-            .dest(dest_fn(|mut pkg: Package| async move {
-                //
-                println!("HER: {}", String::from_utf8(pkg.take_content().bytes().await.unwrap().to_vec()).unwrap());
-                Result::<_, pipes::Error>::Ok(())
-            }))
+            .dest(KravlDestination {
+                open_files: Default::default(),
+                root: self.destination.clone(),
+                signal: tokio::sync::Notify::new()
+            })
             .run(())
             .await;
 
@@ -114,17 +115,29 @@ impl Dest<Package> for KravlDestination {
                     lock.insert(path.clone());
                     break;
                 }
-
+                drop(lock);
+                println!("WAIT");
                 self.signal.notified().await
+            }
+
+            if let Some(parent) = path.parent() {
+                tokio::fs::create_dir_all(parent).await.ok();
             }
 
             if req.mime() == &pipes::mime::APPLICATION_JSON {
                 let mut file = tokio::fs::OpenOptions::default().append(true).create(true).open(&path).await.map_err(pipes::Error::new)?;
                 let bytes = req.take_content().bytes().await?;
                 file.write_all(&bytes).await.map_err(pipes::Error::new)?;
+                file.write_all(b"\n").await.map_err(pipes::Error::new)?;
+            } else {
+                let mut file = tokio::fs::OpenOptions::default().create_new(true).write(true).open(&path).await.map_err(pipes::Error::new)?;
+                let bytes = req.take_content().bytes().await?;
+                file.write_all(&bytes).await.map_err(pipes::Error::new)?;
             }
 
+
             self.open_files.lock().unwrap().remove(&path);
+            self.signal.notify_waiters();
 
             Ok(())
         })
