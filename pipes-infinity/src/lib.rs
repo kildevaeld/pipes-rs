@@ -62,10 +62,18 @@ where
     }
 }
 
-#[derive(Clone)]
 pub struct TaskCtx<C, R> {
     inner: infinitask::TaskCtx<C>,
     sx: Producer<Result<R, pipes::Error>>,
+}
+
+impl<C: Clone, R> Clone for TaskCtx<C, R> {
+    fn clone(&self) -> Self {
+        TaskCtx {
+            inner: self.inner.clone(),
+            sx: self.sx.clone(),
+        }
+    }
 }
 
 impl<C: Clone + Send + Sync + 'static, R> TaskCtx<C, R> {

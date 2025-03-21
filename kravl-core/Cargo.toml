@@ -1,0 +1,19 @@
+[package]
+name = "kravl-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pipes = { path = "../pipes", features = ["std"] }
+pipes-infinity = { path = "../pipes-infinity" }
+
+rquickjs = { version = "0.8" }
+rquickjs-util = { git = "https://github.com/fairy-render/klaver" }
+
+klaver = { git = "https://github.com/fairy-render/klaver", features = ["pool"] }
+klaver-wintercg = { git = "https://github.com/fairy-render/klaver" }
+klaver-dom = { git = "https://github.com/fairy-render/klaver" }
+# klaver-image = { git = "https://github.com/fairy-render/klaver" }
+klaver-fs = { git = "https://github.com/fairy-render/klaver" }
+
+deadpool = { version = "0.12" }
