@@ -1,29 +1,27 @@
 ((self) => {
-	async function runTask(ctx, specifier) {
-		const module = await import(specifier);
+  async function* runTask(ctx, specifier) {
+    const module = await import(specifier);
 
-		const ret = await module.default({
-			async push(task) {
-				if (typeof task === "function") {
-					ctx.push((ctx) => handle(ctx, task));
-				} else {
-					ctx.push(task);
-				}
-			},
-		});
+    const ret = await module.default(ctx);
 
-		if (ret[Symbol.asyncIterator]) {
-			for await (const i of ret) {
-			}
-		} else if (ret[Symbol.iterator]) {
-			for (const i of ret) {
-			}
-		}
-	}
+    if (ret[Symbol.asyncIterator]) {
+      for await (const i of ret) {
+        yield processValue(i);
+      }
+    } else if (ret[Symbol.iterator]) {
+      for (const i of ret) {
+        yield processValue(i);
+      }
+    } else {
+      yield processValue(value);
+    }
+  }
 
-	async function handle(ctx, task) {}
+  async function processValue(value) {
+    return value;
+  }
 
-	if (this.runTask) {
-		this.runTask = runTask;
-	}
+  if (this.runTask) {
+    this.runTask = runTask;
+  }
 })(globalThis);

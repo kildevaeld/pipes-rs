@@ -17,3 +17,8 @@ klaver-dom = { git = "https://github.com/fairy-render/klaver" }
 klaver-fs = { git = "https://github.com/fairy-render/klaver" }
 
 deadpool = { version = "0.12" }
+
+tokio = { version = "1", features = ["rt"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

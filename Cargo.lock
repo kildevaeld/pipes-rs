@@ -1152,7 +1152,7 @@ dependencies = [
 [[package]]
 name = "klaver"
 version = "0.2.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "deadpool",
  "futures",
@@ -1166,7 +1166,7 @@ dependencies = [
 [[package]]
 name = "klaver-dom"
 version = "0.1.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "domjohnson",
  "locket",
@@ -1178,7 +1178,7 @@ dependencies = [
 [[package]]
 name = "klaver-fs"
 version = "0.1.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "futures",
  "rquickjs",
@@ -1191,7 +1191,7 @@ dependencies = [
 [[package]]
 name = "klaver-wintercg"
 version = "0.1.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -1229,6 +1229,7 @@ dependencies = [
  "pipes-infinity",
  "rquickjs",
  "rquickjs-util",
+ "tokio",
 ]
 
 [[package]]
@@ -2001,7 +2002,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-modules"
 version = "0.2.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "geenie",
  "oxc_resolver",
@@ -2024,7 +2025,7 @@ dependencies = [
 [[package]]
 name = "rquickjs-util"
 version = "0.1.0"
-source = "git+https://github.com/fairy-render/klaver#a624bfc4a50156518e09be2089bbf7cf19531dbb"
+source = "git+https://github.com/fairy-render/klaver#8518cde5025716181775888926c75aed0ce7a5e3"
 dependencies = [
  "chrono",
  "futures",
