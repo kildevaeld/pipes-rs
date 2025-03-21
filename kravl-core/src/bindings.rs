@@ -1,8 +1,11 @@
-use std::sync::{Arc, Weak};
+use std::{
+    str::FromStr,
+    sync::{Arc, Weak},
+};
 
 use klaver::{RuntimeError, pool::PooledVm};
 use klaver_wintercg::streams::ReadableStream;
-use pipes::{Body, Package};
+use pipes::{Body, Mime, Package};
 use pipes_infinity::TaskCtx;
 use rquickjs::{Ctx, FromJs, Function, JsLifetime, Object, class::Trace};
 use rquickjs_util::{Buffer, StringRef, Val};
@@ -85,8 +88,8 @@ impl<'js> FromJs<'js> for JsPackageContent<'js> {
 }
 
 impl<'js> JsPackage<'js> {
-    pub fn into_package(self, ctx: &Ctx<'js>) -> Result<Package, RuntimeError> {
-        match self.content {
+    pub async fn into_package(self, ctx: &Ctx<'js>) -> Result<Package, RuntimeError> {
+        let body = match self.content {
             JsPackageContent::Buffer(buffer) => match buffer.as_raw() {
                 Some(raw) => Body::Bytes(raw.slice().to_vec().into()),
                 None => Body::Empty,
@@ -99,13 +102,17 @@ impl<'js> JsPackage<'js> {
                 }
             }
             JsPackageContent::Stream(stream) => {
-                todo!()
+                Body::Bytes(stream.to_bytes(ctx.clone()).await?.into())
             }
-            JsPackageContent::String(string) => {
-                todo!()
-            }
+            JsPackageContent::String(string) => Body::Bytes(string.as_bytes().to_vec().into()),
         };
 
-        todo!()
+        let mime = if let Some(mime) = self.mime {
+            Mime::from_str(mime.as_str()).unwrap()
+        } else {
+            pipes::mime::APPLICATION_OCTET_STREAM
+        };
+
+        Ok(Package::new(self.name.as_str(), mime, body))
     }
 }

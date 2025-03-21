@@ -21,7 +21,16 @@
     return value;
   }
 
-  if (this.runTask) {
-    this.runTask = runTask;
+  class Package {
+    constructor(name, content, mime) {
+      this.name = name;
+      this.content = content;
+      this.mime = mime;
+    }
+  }
+
+  if (!self.runTask) {
+    self.runTask = runTask;
+    self.Package = Package;
   }
 })(globalThis);

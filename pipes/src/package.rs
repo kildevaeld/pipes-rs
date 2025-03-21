@@ -11,13 +11,14 @@ use alloc::boxed::Box;
 use bytes::{BufMut, Bytes, BytesMut};
 use either::Either;
 use futures::{future::BoxFuture, stream::BoxStream, Future, TryStreamExt};
-use mime::Mime;
 use pin_project_lite::pin_project;
 use relative_path::{RelativePath, RelativePathBuf};
 #[cfg(feature = "tokio")]
 use tokio::io::AsyncWriteExt;
 
 use crate::{cloned::AsyncClone, Error};
+
+pub use mime::{self, Mime};
 
 pub enum Body {
     Bytes(Bytes),

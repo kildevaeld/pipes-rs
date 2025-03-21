@@ -1,11 +1,12 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::{HashMap, HashSet}, path::PathBuf, pin::Pin, sync::{Arc, Mutex}};
 
 use bindings::JsPackage;
 use klaver::{RuntimeError, modules::Environ, pool::VmPoolOptions};
-use pipes::{Package, Pipeline, Producer, SourceExt, dest_fn};
+use pipes::{dest_fn, Dest, Package, Pipeline, Producer, SourceExt, Unit};
 use pipes_infinity::{InifiniSource, task_fn};
 use rquickjs::{CatchResultExt, Class, Function, Module, Object, Value};
 use rquickjs_util::{Val, async_iterator::JsAsyncIterator};
+use tokio::io::AsyncWriteExt;
 
 mod bindings;
 
@@ -44,7 +45,7 @@ impl Kravl {
         Ok(Kravl { pool })
     }
 
-    pub async fn run(&self, paths: impl Into<Vec<String>>) -> Result<(), RuntimeError> {
+    pub async fn run(&self, paths: impl Into<Vec<String>>) -> Result<(), pipes::Error> {
         let paths = paths.into();
 
         let (producer, rx) = Producer::<Package>::new();
@@ -59,13 +60,13 @@ impl Kravl {
 
                         let runner = ctx.globals().get::<_, Function>("runTask").catch(&ctx)?;
 
-                        let v = Class::instance(ctx.clone(), bindings::JsTaskCtx::default())?;
-
-                        let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((v, path))?;
+                        let v = Class::instance(ctx.clone(), bindings::JsTaskCtx::default()).catch(&ctx)?;
+                   
+                        let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((v, path)).catch(&ctx)?;
 
                         while let Some(next) = ret.next().await? {
-                            let pkg = next.into_package(&ctx)?;
-                            producer.send(pkg);
+                            let pkg = next.into_package(&ctx).await?;
+                            producer.send(pkg).unwrap();
                         }
                     Ok(())
                 })
@@ -77,11 +78,55 @@ impl Kravl {
 
         drop(producer);
 
-        let pipes = Pipeline::<_, _, ()>::new(rx).dest(dest_fn(|pkg| async {
-            //
-            Ok(())
-        }));
+        Pipeline::<_, _, ()>::new(rx)
+            .dest(dest_fn(|mut pkg: Package| async move {
+                //
+                println!("HER: {}", String::from_utf8(pkg.take_content().bytes().await.unwrap().to_vec()).unwrap());
+                Result::<_, pipes::Error>::Ok(())
+            }))
+            .run(())
+            .await;
 
         Ok(())
+    }
+}
+
+
+pub struct KravlDestination {
+    open_files: Mutex<HashSet<PathBuf>>,
+    root: PathBuf,
+    signal: tokio::sync::Notify
+}
+
+impl Dest<Package> for KravlDestination {
+    type Future<'a> = Pin<Box<dyn Future<Output = Result<(), pipes::Error>> + 'a>>
+    where
+        Self: 'a;
+
+    fn call<'a>(&'a self, mut req: Package) -> Self::Future<'a> {
+
+        Box::pin(async move {
+            let path = req.path().to_logical_path(&self.root);
+            
+            loop {
+                let mut lock = self.open_files.lock().unwrap();
+                if !lock.contains(&path) {
+                    lock.insert(path.clone());
+                    break;
+                }
+
+                self.signal.notified().await
+            }
+
+            if req.mime() == &pipes::mime::APPLICATION_JSON {
+                let mut file = tokio::fs::OpenOptions::default().append(true).create(true).open(&path).await.map_err(pipes::Error::new)?;
+                let bytes = req.take_content().bytes().await?;
+                file.write_all(&bytes).await.map_err(pipes::Error::new)?;
+            }
+
+            self.open_files.lock().unwrap().remove(&path);
+
+            Ok(())
+        })
     }
 }

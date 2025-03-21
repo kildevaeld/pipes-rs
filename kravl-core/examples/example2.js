@@ -3,12 +3,12 @@ function delay(n) {
 }
 
 export default async function* test() {
-  for (let i = 0; i < 10; i++) {
-    await delay(600);
+  for (let i = 10; i < 20; i++) {
+    await delay(100 * i);
     yield {
       name: "outout.json",
       content: {
-        count: i,
+        iter: i,
       },
       mime: "application/json",
     };

@@ -4,5 +4,11 @@ use kravl_core::Kravl;
 async fn main() {
     let kravl = Kravl::new().await.unwrap();
 
-    kravl.run(["./kravl-core/examples/example.js"])
+    kravl
+        .run([
+            "./kravl-core/examples/example.js".to_string(),
+            "./kravl-core/examples/example2.js".to_string(),
+        ])
+        .await
+        .unwrap();
 }
