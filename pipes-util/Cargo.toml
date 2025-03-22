@@ -1,0 +1,10 @@
+[package]
+name = "pipes-util"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+pipes = { path = "../pipes" }
+async-channel = { version = "2" }
+pin-project-lite = { version = "0.2" }
+futures-core = { version = "0.3" }

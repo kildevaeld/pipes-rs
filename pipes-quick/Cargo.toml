@@ -1,5 +1,5 @@
 [package]
-name = "kravl-core"
+name = "pipes-quick"
 version = "0.1.0"
 edition = "2024"
 
@@ -16,13 +16,9 @@ klaver-wintercg = { git = "https://github.com/fairy-render/klaver" }
 
 deadpool = { version = "0.12" }
 
-tokio = { version = "1", features = ["rt", "sync", "fs"] }
-futures-core = { version = "0.3" }
 relative-path = { version = "1", features = ["serde"] }
-
+futures = { version = "0.3" }
+tokio = { version = "1", features = ["rt"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
-klaver-dom = { git = "https://github.com/fairy-render/klaver" }
-# klaver-image = { git = "https://github.com/fairy-render/klaver" }
-klaver-fs = { git = "https://github.com/fairy-render/klaver" }

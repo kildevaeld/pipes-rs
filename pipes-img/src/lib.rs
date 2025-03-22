@@ -9,8 +9,10 @@ use std::{
 use futures::{future::BoxFuture, ready};
 use image::DynamicImage;
 use pin_project_lite::pin_project;
-use pipes::{Body, Error, Package, Work};
+use pipes::{Error, Work};
 use relative_path::RelativePathBuf;
+
+use pipes_fs::{Body, Package};
 
 #[derive(Debug, Clone)]
 pub enum Operation {

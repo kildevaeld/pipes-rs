@@ -1,4 +1,4 @@
-use core::{marker::PhantomData, task::Poll};
+use core::task::Poll;
 use either::Either;
 use futures::{ready, Future, TryFuture};
 use pin_project_lite::pin_project;
@@ -11,9 +11,6 @@ use crate::{
     wrap::Wrap,
 };
 
-#[cfg(feature = "std")]
-use super::{IntoPackage, Package};
-
 pub trait Work<C, T> {
     type Output;
     type Future<'a>: Future<Output = Result<Self::Output, Error>>
@@ -24,36 +21,6 @@ pub trait Work<C, T> {
 }
 
 pub trait WorkExt<C, T>: Work<C, T> {
-    // fn boxed(self) -> WorkBox<C, T, Self::Output>
-    // where
-    //     Self: Sized + Send + 'static,
-    //     for<'a> Self::Future<'a>: Send,
-    //     T: Send + 'static,
-    // {
-    //     Box::new(BoxedWorker(self))
-    // }
-
-    // fn boxed_local(self) -> LocalWorkBox<C, T, Self::Output>
-    // where
-    //     Self: Sized + Send + 'static,
-    //     for<'a> Self::Future<'a>: Send,
-    //     T: Send + 'static,
-    // {
-    //     Box::new(LocalBoxedWorker(self))
-    // }
-
-    #[cfg(feature = "std")]
-    fn into_package(self) -> IntoPackageWork<Self, C>
-    where
-        Self: Sized,
-        Self::Output: IntoPackage,
-    {
-        IntoPackageWork {
-            worker: self,
-            ctx: PhantomData,
-        }
-    }
-
     fn pipe<W>(self, work: W) -> And<Self, W>
     where
         Self: Sized,
@@ -156,150 +123,6 @@ where
         match ready!(this.future.try_poll(cx)) {
             Ok(ret) => Poll::Ready(Ok(ret)),
             Err(err) => Poll::Ready(Err(err.into())),
-        }
-    }
-}
-
-// pub type WorkBox<C, R, O> =
-//     Box<dyn Work<C, R, Output = O, Future = BoxFuture<'static, Result<O, Error>>> + Send>;
-
-// pub type LocalWorkBox<C, R, O> =
-//     Box<dyn Work<C, R, Output = O, Future = LocalBoxFuture<'static, Result<O, Error>>>>;
-
-// pub struct BoxedWorker<T>(T);
-
-// impl<T, C, R> Work<C, R> for BoxedWorker<T>
-// where
-//     T: Work<C, R>,
-//     T::Future: Send + 'static,
-//     R: Send + 'static,
-// {
-//     type Output = T::Output;
-
-//     type Future = BoxFuture<'static, Result<T::Output, Error>>;
-
-//     fn call(&self, ctx: C, package: R) -> Self::Future {
-//         self.0.call(ctx, package).boxed()
-//     }
-// }
-
-// pub struct LocalBoxedWorker<T>(T);
-
-// impl<T, C, R> Work<C, R> for LocalBoxedWorker<T>
-// where
-//     T: Work<C, R>,
-//     T::Future: 'static,
-// {
-//     type Output = T::Output;
-
-//     type Future = LocalBoxFuture<'static, Result<T::Output, Error>>;
-
-//     fn call(&self, ctx: C, package: R) -> Self::Future {
-//         self.0.call(ctx, package).boxed_local()
-//     }
-// }
-
-#[cfg(feature = "std")]
-#[derive(Debug)]
-pub struct IntoPackageWork<T, C> {
-    worker: T,
-    ctx: PhantomData<C>,
-}
-
-#[cfg(feature = "std")]
-impl<T: Copy, C> Copy for IntoPackageWork<T, C> {}
-
-#[cfg(feature = "std")]
-impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
-    fn clone(&self) -> Self {
-        IntoPackageWork {
-            worker: self.worker.clone(),
-            ctx: PhantomData,
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-unsafe impl<T: Send, C> Send for IntoPackageWork<T, C> {}
-
-#[cfg(feature = "std")]
-unsafe impl<T: Sync, C> Sync for IntoPackageWork<T, C> {}
-
-#[cfg(feature = "std")]
-impl<T, C, R> Work<C, R> for IntoPackageWork<T, C>
-where
-    T: Work<C, R>,
-    T::Output: IntoPackage,
-    C: 'static,
-{
-    type Output = Package;
-
-    type Future<'a>
-        = IntoPackageWorkFuture<T::Future<'a>>
-    where
-        Self: 'a;
-
-    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
-        IntoPackageWorkFuture::Work {
-            future: self.worker.call(ctx, package),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-pin_project! {
-    #[project = Proj]
-    pub enum IntoPackageWorkFuture<T> where T: TryFuture, T::Ok: IntoPackage {
-       Work {
-        #[pin]
-        future: T
-       },
-       Convert {
-        #[pin]
-        future: <T::Ok as IntoPackage>::Future
-       },
-       Done
-    }
-}
-
-#[cfg(feature = "std")]
-impl<T> Future for IntoPackageWorkFuture<T>
-where
-    T: TryFuture,
-    T::Ok: IntoPackage,
-    T::Error: Into<Error>,
-{
-    type Output = Result<Package, Error>;
-
-    fn poll(
-        mut self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> Poll<Self::Output> {
-        loop {
-            let this = self.as_mut().project();
-
-            match this {
-                Proj::Convert { future } => {
-                    let ret = ready!(future.poll(cx));
-                    self.set(Self::Done);
-                    return Poll::Ready(ret);
-                }
-                Proj::Work { future } => {
-                    let ret = ready!(future.try_poll(cx));
-                    match ret {
-                        Ok(ret) => self.set(Self::Convert {
-                            future: ret.into_package(),
-                        }),
-                        Err(err) => {
-                            self.set(Self::Done);
-                            return Poll::Ready(Err(err.into()));
-                        }
-                    }
-                }
-                Proj::Done => {
-                    panic!("poll after done")
-                }
-            }
         }
     }
 }

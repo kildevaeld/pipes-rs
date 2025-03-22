@@ -7,16 +7,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use alloc::boxed::Box;
 use bytes::{BufMut, Bytes, BytesMut};
 use either::Either;
-use futures::{future::BoxFuture, stream::BoxStream, Future, TryStreamExt};
+use futures::{Future, TryStreamExt, future::BoxFuture, stream::BoxStream};
 use pin_project_lite::pin_project;
 use relative_path::{RelativePath, RelativePathBuf};
-#[cfg(feature = "tokio")]
 use tokio::io::AsyncWriteExt;
 
-use crate::{cloned::AsyncClone, Error, Work};
+use pipes::{AsyncClone, Error};
 
 pub use mime::{self, Mime};
 
@@ -195,7 +193,6 @@ impl Package {
         &mut self.meta
     }
 
-    #[cfg(feature = "tokio")]
     pub async fn write_to(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         let file_path = self.name.to_logical_path(path);
 
@@ -207,7 +204,7 @@ impl Package {
                 file.write_all(&*bs).await.map_err(Error::new)?;
                 file.flush().await.map_err(Error::new)?;
             }
-            Body::Stream(ref mut stream) => {
+            Body::Stream(stream) => {
                 let mut file = tokio::fs::File::create(file_path)
                     .await
                     .map_err(Error::new)?;

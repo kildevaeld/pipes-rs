@@ -5,8 +5,10 @@ resolver = "2"
 members = [
   "pipes",
   "pipes-img",
-  "pipes-utils",
+  # "pipes-utils",
   "infinitask",
-  "pipes-infinity",
+  # "pipes-infinity",
   "kravl-core",
+  "pipes-fs",
+  "pipes-http", "pipes-util", "pipes-quick",
 ]

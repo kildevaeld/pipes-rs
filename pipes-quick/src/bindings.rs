@@ -1,7 +1,4 @@
-use klaver::{
-    RuntimeError,
-    modules::{GlobalInfo, ModuleInfo},
-};
+use klaver::{RuntimeError, modules::GlobalInfo};
 use klaver_wintercg::{console::ConsoleWriter, streams::ReadableStream};
 use pipes_fs::{Body, Mime, Package};
 use rquickjs::{Ctx, FromJs, Object};
@@ -112,16 +109,16 @@ impl ConsoleWriter for Logger {
     }
 }
 
-pub struct Module;
+// pub struct Module;
 
-impl ModuleInfo for Module {
-    const NAME: &'static str = "kravl";
+// impl ModuleInfo for Module {
+//     const NAME: &'static str = "kravl";
 
-    fn typings() -> Option<Cow<'static, str>> {
-        Some(Cow::Borrowed(include_str!("./pipes.d.ts")))
-    }
+//     fn typings() -> Option<Cow<'static, str>> {
+//         Some(Cow::Borrowed(include_str!("./pipes.d.ts")))
+//     }
 
-    fn register(modules: &mut klaver::modules::ModuleBuilder<'_, Self>) {
-        modules.register_source(include_bytes!("./pipes.js").to_vec());
-    }
-}
+//     fn register(modules: &mut klaver::modules::ModuleBuilder<'_, Self>) {
+//         modules.register_source(include_bytes!("./pipes.js").to_vec());
+//     }
+// }

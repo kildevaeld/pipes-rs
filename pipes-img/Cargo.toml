@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-pipes = { path = "../pipes", features = ["std"] }
+pipes = { path = "../pipes" }
+pipes-fs = { path = "../pipes-fs" }
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
     "png",
@@ -21,5 +22,4 @@ webp = { version = "0.3" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
-pipes = { path = "../pipes", features = ["std", "http"] }
 reqwest = { version = "0.12" }

@@ -1,5 +1,4 @@
 use core::task::Poll;
-use std::path::PathBuf;
 
 use alloc::boxed::Box;
 #[cfg(feature = "tokio")]
@@ -7,7 +6,7 @@ use futures::future::BoxFuture;
 use futures::{ready, Future, TryFuture};
 use pin_project_lite::pin_project;
 
-use crate::{Error, IntoPackage, Package, Work};
+use crate::Error;
 
 pub trait Dest<T> {
     type Future<'a>: Future<Output = Result<(), Error>>
@@ -91,64 +90,64 @@ impl<T: Send + 'static> Dest<T> for async_channel::Sender<T> {
     }
 }
 
-#[cfg(feature = "tokio")]
-#[derive(Debug, Clone)]
-pub struct FsDest {
-    path: std::path::PathBuf,
-}
+// #[cfg(feature = "tokio")]
+// #[derive(Debug, Clone)]
+// pub struct FsDest {
+//     path: std::path::PathBuf,
+// }
 
-#[cfg(feature = "tokio")]
-impl FsDest {
-    pub fn new(path: impl Into<PathBuf>) -> FsDest {
-        FsDest { path: path.into() }
-    }
-}
+// #[cfg(feature = "tokio")]
+// impl FsDest {
+//     pub fn new(path: impl Into<PathBuf>) -> FsDest {
+//         FsDest { path: path.into() }
+//     }
+// }
 
-#[cfg(feature = "tokio")]
-impl<T: IntoPackage + Send> Dest<T> for FsDest
-where
-    T::Future: Send,
-    for<'a> T: 'a,
-{
-    type Future<'a> = BoxFuture<'a, Result<(), Error>>;
+// #[cfg(feature = "tokio")]
+// impl<T: IntoPackage + Send> Dest<T> for FsDest
+// where
+//     T::Future: Send,
+//     for<'a> T: 'a,
+// {
+//     type Future<'a> = BoxFuture<'a, Result<(), Error>>;
 
-    fn call<'a>(&'a self, req: T) -> Self::Future<'a> {
-        Box::pin(async move {
-            //
-            if !tokio::fs::try_exists(&self.path)
-                .await
-                .map_err(Error::new)?
-            {
-                tokio::fs::create_dir_all(&self.path)
-                    .await
-                    .map_err(Error::new)?
-            }
-            req.into_package().await?.write_to(&self.path).await
-        })
-    }
-}
+//     fn call<'a>(&'a self, req: T) -> Self::Future<'a> {
+//         Box::pin(async move {
+//             //
+//             if !tokio::fs::try_exists(&self.path)
+//                 .await
+//                 .map_err(Error::new)?
+//             {
+//                 tokio::fs::create_dir_all(&self.path)
+//                     .await
+//                     .map_err(Error::new)?
+//             }
+//             req.into_package().await?.write_to(&self.path).await
+//         })
+//     }
+// }
 
-#[cfg(feature = "tokio")]
-impl<C, T: IntoPackage + Send> Work<C, T> for FsDest
-where
-    T::Future: Send,
-    for<'a> T: 'a,
-{
-    type Output = Package;
+// #[cfg(feature = "tokio")]
+// impl<C, T: IntoPackage + Send> Work<C, T> for FsDest
+// where
+//     T::Future: Send,
+//     for<'a> T: 'a,
+// {
+//     type Output = Package;
 
-    type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
+//     type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
 
-    fn call<'a>(&'a self, _ctx: C, req: T) -> Self::Future<'a> {
-        let path = self.path.clone();
-        Box::pin(async move {
-            if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
-                tokio::fs::create_dir_all(&path).await.map_err(Error::new)?
-            }
+//     fn call<'a>(&'a self, _ctx: C, req: T) -> Self::Future<'a> {
+//         let path = self.path.clone();
+//         Box::pin(async move {
+//             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
+//                 tokio::fs::create_dir_all(&path).await.map_err(Error::new)?
+//             }
 
-            let mut package = req.into_package().await?;
-            package.write_to(&path).await?;
+//             let mut package = req.into_package().await?;
+//             package.write_to(&path).await?;
 
-            Ok(package)
-        })
-    }
-}
+//             Ok(package)
+//         })
+//     }
+// }

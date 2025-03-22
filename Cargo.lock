@@ -45,6 +45,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "async-channel"
 version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -183,6 +189,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
+]
+
+[[package]]
+name = "async-walkdir"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37672978ae0febce7516ae0a85b53e6185159a9a28787391eb63fc44ec36037d"
+dependencies = [
+ "async-fs",
+ "futures-lite",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
@@ -588,6 +605,15 @@ checksum = "0f214dc438f977e6d4e3500aaa277f5ad94ca83fbbd9b1a15713ce2344ccc5a1"
 dependencies = [
  "event-listener",
  "pin-project-lite",
+]
+
+[[package]]
+name = "fast-glob"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "39ea3f6bbcf4dbe2076b372186fc7aeecd5f6f84754582e56ee7db262b15a6f0"
+dependencies = [
+ "arrayvec",
 ]
 
 [[package]]
@@ -1221,12 +1247,15 @@ name = "kravl-core"
 version = "0.1.0"
 dependencies = [
  "deadpool",
+ "futures-core",
  "klaver",
  "klaver-dom",
  "klaver-fs",
  "klaver-wintercg",
  "pipes",
- "pipes-infinity",
+ "pipes-fs",
+ "pipes-util",
+ "relative-path",
  "rquickjs",
  "rquickjs-util",
  "tokio",
@@ -1513,6 +1542,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pathdiff"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
+
+[[package]]
 name = "percent-encoding"
 version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1657,19 +1692,45 @@ dependencies = [
 name = "pipes"
 version = "0.1.0"
 dependencies = [
- "async-channel",
  "async-stream",
+ "either",
+ "futures",
+ "pin-project-lite",
+ "tokio",
+]
+
+[[package]]
+name = "pipes-fs"
+version = "0.1.0"
+dependencies = [
+ "async-stream",
+ "async-walkdir",
  "bytes",
  "either",
+ "fast-glob",
+ "futures",
+ "mime",
+ "mime_guess",
+ "pathdiff",
+ "pin-project-lite",
+ "pipes",
+ "relative-path",
+ "tokio",
+]
+
+[[package]]
+name = "pipes-http"
+version = "0.1.0"
+dependencies = [
+ "bytes",
  "futures",
  "http-body",
  "mime",
- "mime_guess",
  "pin-project-lite",
+ "pipes",
+ "pipes-fs",
  "relative-path",
  "reqwest",
- "tokio",
- "tokio-util",
 ]
 
 [[package]]
@@ -1682,6 +1743,7 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "pipes",
+ "pipes-fs",
  "relative-path",
  "reqwest",
  "tokio",
@@ -1689,28 +1751,30 @@ dependencies = [
 ]
 
 [[package]]
-name = "pipes-infinity"
+name = "pipes-quick"
 version = "0.1.0"
 dependencies = [
- "async-channel",
- "async-stream",
- "async-trait",
+ "deadpool",
  "futures",
- "infinitask",
+ "klaver",
+ "klaver-wintercg",
  "pipes",
+ "pipes-fs",
+ "pipes-util",
+ "relative-path",
+ "rquickjs",
+ "rquickjs-util",
  "tokio",
 ]
 
 [[package]]
-name = "pipes-utils"
+name = "pipes-util"
 version = "0.1.0"
 dependencies = [
- "futures",
+ "async-channel",
+ "futures-core",
+ "pin-project-lite",
  "pipes",
- "relative-path",
- "reqwest",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1918,6 +1982,9 @@ name = "relative-path"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba39f3699c378cd8970968dcbff9c43159ea4cfbd88d43c00b22f2ef10a435d2"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "reqwest"

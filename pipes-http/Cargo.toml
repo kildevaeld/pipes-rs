@@ -1,0 +1,19 @@
+[package]
+name = "pipes-http"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["fs"]
+fs = ["pipes-fs"]
+
+[dependencies]
+http-body = { version = "1" }
+pipes = { path = "../pipes" }
+pipes-fs = { path = "../pipes-fs", optional = true }
+reqwest = { version = "0.12" }
+mime = { version = "0.3" }
+futures = { version = "0.3" }
+relative-path = { version = "1", features = ["serde"] }
+pin-project-lite = { version = "0.2" }
+bytes = { version = "1", default-features = false }

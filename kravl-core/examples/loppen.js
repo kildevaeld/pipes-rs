@@ -1,10 +1,14 @@
-export default async function () {
-	const resp = await fetch("https://loppen.dk", {
-		headers: {
-			"User-Agent":
-				"Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
-		},
-	});
+import { parse } from "@klaver/dom";
 
-	return new Package("loppen.html", await resp.text(), "text/html");
+export const meta = {
+  name: "Loppen",
+};
+
+export default async function () {
+  const dom = await fetchDom("https://loppen.dk");
+
+  const title = dom.querySelector("head title").innerText;
+  console.log("Title");
+
+  return [new Package("loppen-title.txt", title, "text/plain")];
 }

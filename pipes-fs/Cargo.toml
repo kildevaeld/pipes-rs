@@ -1,0 +1,21 @@
+[package]
+name = "pipes-fs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["fs"] }
+async-walkdir = { version = "2" }
+fast-glob = { version = "0.4" }
+async-stream = { version = "0.3" }
+relative-path = { version = "1", features = ["serde"] }
+futures = { version = "0.3" }
+pathdiff = { version = "0.2" }
+
+pipes = { path = "../pipes", features = ["std"] }
+mime_guess = { version = "2" }
+
+pin-project-lite = { version = "0.2" }
+either = { version = "*" }
+bytes = { version = "1", default-features = false }
+mime = { version = "0.3" }

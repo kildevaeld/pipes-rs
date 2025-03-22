@@ -1,17 +1,41 @@
 use std::path::PathBuf;
 
-use kravl_core::Kravl;
+use klaver::pool::VmPoolOptions;
+use kravl_core::{KravlDestination, KravlSource};
+use pipes::{Pipeline, Unit, pipe, prelude::*};
+use pipes_fs::mime;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let kravl = Kravl::new(PathBuf::from("./output-yall")).await.unwrap();
+    let modules = klaver::Options::default()
+        .module::<klaver_dom::Module>()
+        .module::<klaver_fs::Module>()
+        .search_path(".")
+        .build_environ();
 
-    kravl
-        .run([
-            "./kravl-core/examples/example.js".to_string(),
-            "./kravl-core/examples/example2.js".to_string(),
-            "./kravl-core/examples/loppen.js".to_string(),
-        ])
-        .await
-        .unwrap();
+    let pool = klaver::pool::Pool::builder(
+        klaver::pool::Manager::new(VmPoolOptions {
+            max_stack_size: None,
+            memory_limit: None,
+            modules,
+            worker_thread: false,
+        })
+        .map_err(pipes::Error::new)
+        .unwrap(),
+    )
+    .build()
+    .unwrap();
+
+    pipe(KravlSource::new_with(
+        pool,
+        [
+            "./kravl-core/examples/example.js".into(),
+            "./kravl-core/examples/example2.js".into(),
+            "./kravl-core/examples/loppen.js".into(),
+        ]
+        .to_vec(),
+    ))
+    .dest(KravlDestination::new("output-yall").append_when(mime::APPLICATION_JSON))
+    .run(())
+    .await;
 }
