@@ -3,6 +3,7 @@ mod into_package;
 mod package;
 mod resolver;
 mod source;
+mod work;
 mod work_ext;
 
 pub use self::{
@@ -10,6 +11,7 @@ pub use self::{
     into_package::IntoPackageWork,
     package::{Body, IntoPackage, Meta, Package},
     source::FsSource,
+    work::*,
 };
 
 pub use mime::{self, Mime};

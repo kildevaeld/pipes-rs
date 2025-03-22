@@ -18,11 +18,11 @@ impl Matcher for String {
 
 impl<'a> Matcher for &'a str {
     fn is_match(&self, path: &Path) -> bool {
-        let as_str = match path.file_name() {
-            Some(ret) => ret.to_string_lossy().to_string(),
-            None => path.display().to_string(),
-        };
-        fast_glob::glob_match(self, &*as_str)
+        // let as_str = match path.file_name() {
+        //     Some(ret) => ret.to_string_lossy().to_string(),
+        //     None => path.display().to_string(),
+        // };
+        fast_glob::glob_match(self, &*path.display().to_string())
     }
 }
 
@@ -78,6 +78,7 @@ impl FileResolver {
 
 
                     for pattern in &self.patterns {
+
                         if pattern.is_match(&next.path()) {
                             yield next.path();
                             continue 'main_loop;

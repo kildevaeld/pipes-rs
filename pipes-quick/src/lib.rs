@@ -35,7 +35,6 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
         Box::pin(async move {
             let vm = self.pool.get().await.map_err(pipes::Error::new)?;
             let (sx, rx) = pipes_util::channel(1);
-
             tokio::spawn(async move {
                 let sx_clone = sx.clone();
                 let ret= klaver::async_with!(vm => |ctx| {
@@ -96,27 +95,34 @@ impl<C: Send + Sync + 'static> Work<C, Package> for QuickWork {
 
             let content = pkg.take_content().bytes().await?;
 
-            
+            let path = if pkg.path().as_str().starts_with("./") {
+                pkg.path().to_relative_path_buf()
+            } else {
+                RelativePathBuf::from(format!("./{}", pkg.path()))
+            };
+
 
             tokio::spawn(async move {
                 let sx_clone = sx.clone();
                 let ret= klaver::async_with!(vm => |ctx| {
                     ctx.eval::<(), _>(include_str!("./init.js")).catch(&ctx)?;
+
+                    let (module, promise) = Module::declare(ctx.clone(), path.as_str(), content).catch(&ctx)?.eval().catch(&ctx)?;
+
+                    promise.into_future::<()>().await.catch(&ctx)?;
+                        
+
+                    let meta: Option<Meta> = module.get("meta").catch(&ctx)?;
     
-    
-                    let module = Module::evaluate(ctx.clone(), pkg.path().as_str(), content).catch(&ctx)?.into_future::<Object>().await.catch(&ctx)?;
-    
-                    let meta: Option<Meta> = module.get("meta")?;
-    
-                    let console = ctx.globals().get::<_, Class<klaver_wintercg::console::Console>>("console")?;
+                    let console = ctx.globals().get::<_, Class<klaver_wintercg::console::Console>>("console").catch(&ctx)?;
                     console.borrow_mut().set_writer(bindings::Logger {
-                        task: meta.as_ref().and_then(|m| m.name.as_ref().map(|m| m.as_str().to_string())).unwrap_or_else(|| pkg.path().to_string())
+                        task: meta.as_ref().and_then(|m| m.name.as_ref().map(|m| m.as_str().to_string())).unwrap_or_else(|| path.to_string())
                     }).catch(&ctx)?;
+    
     
                     let runner = ctx.globals().get::<_, Function>("__runTask").catch(&ctx)?;
                    
-                    let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((pkg.path().as_str(),)).catch(&ctx)?;
-    
+                    let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((path.as_str(),)).catch(&ctx)?;
                     while let Some(next) = ret.next().await.catch(&ctx)? {
                         let pkg = next.into_package(&ctx).await?;
                         if sx.send(Ok(pkg)).await.is_err() {
@@ -127,7 +133,7 @@ impl<C: Send + Sync + 'static> Work<C, Package> for QuickWork {
                     Ok(())
                 })
                 .await.map_err(pipes::Error::new);
-
+                
                 if let Err(err) = ret {
                     sx_clone.send(Err(err)).await.ok();
                 }

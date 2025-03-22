@@ -1,86 +1,88 @@
 ((self) => {
-  async function* runTask(specifier) {
-    const module = await import(specifier);
+	async function* runTask(specifier) {
+		const module = await import(specifier);
 
-    const ret = await module.default();
+		const ret = await module.default();
 
-    if (ret[Symbol.asyncIterator]) {
-      for await (const i of ret) {
-        if (i) yield processValue(i);
-      }
-    } else if (ret[Symbol.iterator] && !ArrayBuffer.isView(ret)) {
-      for (const i of ret) {
-        if (i) yield processValue(i);
-      }
-    } else {
-      if (ret) yield processValue(ret);
-    }
-  }
+		if (!ret) return;
 
-  async function processValue(value) {
-    if (!value) {
-      return value;
-    }
-    if (value instanceof Package) {
-      return value;
-    }
+		if (ret[Symbol.asyncIterator]) {
+			for await (const i of ret) {
+				if (i) yield processValue(i);
+			}
+		} else if (ret[Symbol.iterator] && !ArrayBuffer.isView(ret)) {
+			for (const i of ret) {
+				if (i) yield processValue(i);
+			}
+		} else {
+			if (ret) yield processValue(ret);
+		}
+	}
 
-    if (typeof value === "string") {
-      return new Package("output.txt", value, "text/plain");
-      // biome-ignore lint/style/noUselessElse: <explanation>
-    } else if (ArrayBuffer.isView(value)) {
-      return new Package("output.bin", value, "application/octet-stream");
-      // biome-ignore lint/style/noUselessElse: <explanation>
-    } else if (value instanceof Json) {
-      return new Package("output.json", value.value, "application/json");
-      // biome-ignore lint/style/noUselessElse: <explanation>
-    } else {
-      return new Package("output.json", value, "application/json");
-    }
-  }
+	async function processValue(value) {
+		if (!value) {
+			return value;
+		}
+		if (value instanceof Package) {
+			return value;
+		}
 
-  class Package {
-    constructor(name, content, mime) {
-      this.name = name;
-      this.content = content;
-      this.mime = mime;
-    }
-  }
+		if (typeof value === "string") {
+			return new Package("output.txt", value, "text/plain");
+			// biome-ignore lint/style/noUselessElse: <explanation>
+		} else if (ArrayBuffer.isView(value)) {
+			return new Package("output.bin", value, "application/octet-stream");
+			// biome-ignore lint/style/noUselessElse: <explanation>
+		} else if (value instanceof Json) {
+			return new Package("output.json", value.value, "application/json");
+			// biome-ignore lint/style/noUselessElse: <explanation>
+		} else {
+			return new Package("output.json", value, "application/json");
+		}
+	}
 
-  class Json {
-    constructor(value) {
-      this.value = value;
-    }
-  }
+	class Package {
+		constructor(name, content, mime) {
+			this.name = name;
+			this.content = content;
+			this.mime = mime;
+		}
+	}
 
-  if (!self.__runTask) {
-    self.__runTask = runTask;
-    self.Package = Package;
-    self.Json = Json;
+	class Json {
+		constructor(value) {
+			this.value = value;
+		}
+	}
 
-    // self.fetchDom = async (url, requestInit) => {
-    //   const { parse } = await import("@klaver/dom");
-    //   const response = await fetch(
-    //     url,
-    //     requestInit ?? {
-    //       headers: {
-    //         "User-Agent":
-    //           "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
-    //         "Cache-Control": "no-cache",
-    //       },
-    //     }
-    //   );
+	if (!self.__runTask) {
+		self.__runTask = runTask;
+		self.Package = Package;
+		self.Json = Json;
 
-    //   const text = await response.text();
-    //   return parse(text);
-    // };
+		// self.fetchDom = async (url, requestInit) => {
+		//   const { parse } = await import("@klaver/dom");
+		//   const response = await fetch(
+		//     url,
+		//     requestInit ?? {
+		//       headers: {
+		//         "User-Agent":
+		//           "Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0",
+		//         "Cache-Control": "no-cache",
+		//       },
+		//     }
+		//   );
 
-    // self.readFile = async (path, encoding) => {
-    //   const fs = await import("@klaver/fs");
-    //   const buffer = await fs.read(path);
-    //   return encoding ? new TextDecoder(encoding).decode(buffer) : buffer;
-    // };
+		//   const text = await response.text();
+		//   return parse(text);
+		// };
 
-    self.json = (value) => new Json(value);
-  }
+		// self.readFile = async (path, encoding) => {
+		//   const fs = await import("@klaver/fs");
+		//   const buffer = await fs.read(path);
+		//   return encoding ? new TextDecoder(encoding).decode(buffer) : buffer;
+		// };
+
+		self.json = (value) => new Json(value);
+	}
 })(globalThis);

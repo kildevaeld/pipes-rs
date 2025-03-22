@@ -20,11 +20,19 @@ async fn main() {
     .build()
     .unwrap();
 
-    Pipeline::<_, _, ()>::new(vec![Result::<_, pipes::Error>::Ok(RelativePathBuf::from(
-        "./pipes-quick/examples/example.js",
-    ))])
-    .pipe(QuickWork::new(pool))
+    Pipeline::<_, _, ()>::new_with(
+        vec![Result::<_, pipes::Error>::Ok(RelativePathBuf::from(
+            "./pipes-quick/examples/example.js",
+        ))],
+        QuickWork::new(pool.clone()),
+    )
     .flatten()
+    .and(
+        pipes_fs::FsSource::new(".".into())
+            .pattern("./pipes-quick/examples/*.js")
+            .pipe(QuickWork::new(pool))
+            .flatten(),
+    )
     .dest(dest_fn(|_| async move {
         println!("HELLO");
         Result::<_, pipes::Error>::Ok(())
