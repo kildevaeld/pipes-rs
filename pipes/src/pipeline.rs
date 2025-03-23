@@ -1,11 +1,5 @@
 use core::{marker::PhantomData, mem::transmute, task::Poll};
-
-use async_stream::try_stream;
-use futures::{
-    ready,
-    stream::{BoxStream, FuturesUnordered},
-    Stream, StreamExt, TryFuture, TryStream,
-};
+use futures::{ready, Stream, TryFuture, TryStream};
 use pin_project_lite::pin_project;
 
 use crate::{
@@ -59,13 +53,13 @@ impl<S, W, C> Pipeline<S, W, C> {
 }
 
 impl<S, W, C> Pipeline<S, W, C> {
-    #[cfg(feature = "tokio")]
-    pub fn concurrent(self) -> ConcurrentPipeline<S, W> {
-        ConcurrentPipeline {
-            source: self.source,
-            work: self.work,
-        }
-    }
+    // #[cfg(feature = "std")]
+    // pub fn concurrent(self) -> ConcurrentPipeline<S, W> {
+    //     ConcurrentPipeline {
+    //         source: self.source,
+    //         work: self.work,
+    //     }
+    // }
 
     pub fn wrap<F, U>(self, func: F) -> Pipeline<S, Wrap<W, F, C>, C>
     where
@@ -145,52 +139,53 @@ where
     }
 }
 
-#[cfg(feature = "tokio")]
-pub struct ConcurrentPipeline<S, W> {
-    source: S,
-    work: W,
-}
+// #[cfg(feature = "std")]
+// pub struct ConcurrentPipeline<S, W> {
+//     source: S,
+//     work: W,
+// }
 
-#[cfg(feature = "tokio")]
-impl<S, W, C> Source<C> for ConcurrentPipeline<S, W>
-where
-    S: Source<C> + Send + 'static,
-    for<'a> S::Stream<'a>: Send,
-    S::Item: Send,
-    W: Work<C, S::Item> + Clone + Send + Sync + 'static,
-    W::Output: Send,
-    for<'a> W::Future<'a>: Send,
-    for<'a> C: Send + 'a,
-    C: Clone,
-{
-    type Item = W::Output;
+// #[cfg(feature = "std")]
+// impl<S, W, C> Source<C> for ConcurrentPipeline<S, W>
+// where
+//     S: Source<C> + Send + 'static,
+//     for<'a> S::Stream<'a>: Send,
+//     S::Item: Send,
+//     W: Work<C, S::Item> + Clone + Send + Sync + 'static,
+//     W::Output: Send,
+//     for<'a> W::Future<'a>: Send,
+//     for<'a> C: Send + 'a,
+//     C: Clone,
+// {
+//     type Item = W::Output;
 
-    type Stream<'a> = BoxStream<'a, Result<Self::Item, Error>>;
+//     type Stream<'a> = futures::stream::BoxStream<'a, Result<Self::Item, Error>>;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        alloc::boxed::Box::pin(try_stream! {
+//     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+//         use futures::StreamExt;
+//         alloc::boxed::Box::pin(async_stream::try_stream! {
 
-            let stream = self.source.call(ctx.clone());
-            futures::pin_mut!(stream);
-            let mut queue = FuturesUnordered::new();
+//             let stream = self.source.call(ctx.clone());
+//             futures::pin_mut!(stream);
+//             let mut queue = futures::stream::FuturesUnordered::new();
 
-            loop {
-                tokio::select! {
-                    Some(next) = stream.next() => {
-                        let ctx = ctx.clone();
-                        queue.push(async  {
-                            let next = next?;
-                            self.work.clone().call(ctx, next).await
-                        });
+//             loop {
+//                 futures::select! {
+//                     Some(next) = stream.next() => {
+//                         let ctx = ctx.clone();
+//                         queue.push(async  {
+//                             let next = next?;
+//                             self.work.clone().call(ctx, next).await
+//                         });
 
-                    }
-                    Some(next) = queue.next() => {
-                        yield next?;
-                    }
-                    else => break
-                }
+//                     }
+//                     Some(next) = queue.next() => {
+//                         yield next?;
+//                     }
+//                     complete => break
+//                 }
 
-            }
-        })
-    }
-}
+//             }
+//         })
+//     }
+// }

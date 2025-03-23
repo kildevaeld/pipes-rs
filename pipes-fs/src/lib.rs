@@ -2,12 +2,17 @@ mod dest;
 mod into_package;
 mod package;
 mod resolver;
+#[cfg(feature = "serde")]
+mod serialize;
 mod source;
 mod work;
 mod work_ext;
 
+#[cfg(feature = "serde")]
+pub use self::serialize::Serde;
+
 pub use self::{
-    dest::FsDest,
+    dest::*,
     into_package::IntoPackageWork,
     package::{Body, IntoPackage, Meta, Package},
     source::FsSource,

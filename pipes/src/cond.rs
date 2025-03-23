@@ -1,5 +1,4 @@
 use core::task::Poll;
-
 use either::Either;
 use futures::{ready, Future};
 use pin_project_lite::pin_project;

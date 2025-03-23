@@ -1,12 +1,11 @@
-use core::fmt::{self, Debug};
-
 use alloc::boxed::Box;
+use core::fmt;
 
 #[cfg(feature = "std")]
 pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 #[cfg(not(feature = "std"))]
-pub type BoxError = Box<dyn Debug + Send + Sync>;
+pub type BoxError = Box<dyn fmt::Debug + Send + Sync>;
 
 #[derive(Debug)]
 pub struct Error {
@@ -25,10 +24,13 @@ impl Error {
     }
 }
 
-#[cfg(feature = "std")]
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.inner)
+        #[cfg(feature = "std")]
+        write!(f, "{}", self.inner)?;
+        #[cfg(not(feature = "std"))]
+        write!(f, "{:?}", self.inner)?;
+        Ok(())
     }
 }
 

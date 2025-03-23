@@ -1,9 +1,7 @@
 use core::{mem::transmute, task::Poll};
 
 use either::Either;
-use futures::{
-    pin_mut, ready, stream::TryFlatten, Stream, StreamExt, TryFuture, TryStream, TryStreamExt,
-};
+use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
 
 use crate::{
@@ -91,132 +89,9 @@ pub trait SourceExt<C>: Source<C> {
     {
         Then::new(self, work)
     }
-
-    #[cfg(feature = "tokio")]
-    fn spawn(self) -> SpawnSource<Self, C>
-    where
-        Self: Sized + Send + 'static,
-        Self::Item: Send + 'static,
-        for<'a> Self::Stream<'a>: Send,
-        for<'a> C: Send + 'a,
-    {
-        SpawnSource::new(self)
-    }
 }
 
 impl<T, C> SourceExt<C> for T where T: Source<C> {}
-
-#[cfg(feature = "async-channel")]
-impl<T> Source for async_channel::Receiver<T> {
-    type Item = T;
-    type Stream = AsyncChannelStream<T>;
-
-    fn call(self) -> Self::Stream {
-        AsyncChannelStream { rx: self }
-    }
-}
-
-#[cfg(feature = "async-channel")]
-pin_project! {
-    pub struct AsyncChannelStream<T> {
-        #[pin]
-        rx: async_channel::Receiver<T>,
-    }
-}
-
-#[cfg(feature = "async-channel")]
-impl<T> Stream for AsyncChannelStream<T> {
-    type Item = Result<T, Error>;
-
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<Option<Self::Item>> {
-        let this = self.project();
-        Poll::Ready(ready!(this.rx.poll_next(cx)).map(Ok))
-    }
-}
-
-#[cfg(feature = "tokio")]
-impl<T: 'static, C> Source<C> for tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>> {
-    type Item = T;
-    type Stream<'a> = TokioChannelStream<T>;
-
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
-        TokioChannelStream { rx: self }
-    }
-}
-
-#[cfg(feature = "tokio")]
-pin_project! {
-    pub struct TokioChannelStream<T> {
-        #[pin]
-        rx: tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>>,
-    }
-}
-
-#[cfg(feature = "tokio")]
-impl<T> Stream for TokioChannelStream<T> {
-    type Item = Result<T, Error>;
-
-    fn poll_next(
-        self: core::pin::Pin<&mut Self>,
-        cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<Option<Self::Item>> {
-        let mut this = self.project();
-        Poll::Ready(ready!(this.rx.poll_recv(cx)))
-    }
-}
-
-#[cfg(feature = "tokio")]
-pub struct SpawnSource<S, C>
-where
-    S: Source<C>,
-{
-    rx: tokio::sync::mpsc::UnboundedReceiver<Result<S::Item, Error>>,
-    start: futures::channel::oneshot::Sender<C>,
-}
-
-#[cfg(feature = "tokio")]
-impl<S, C> SpawnSource<S, C>
-where
-    S: Source<C> + Send + 'static,
-    S::Item: Send + 'static,
-    for<'a> S::Stream<'a>: Send,
-    C: Send + 'static,
-{
-    pub fn new(source: S) -> SpawnSource<S, C> {
-        let (sx, rx) = tokio::sync::mpsc::unbounded_channel();
-        let (start, wait) = futures::channel::oneshot::channel();
-        tokio::spawn(async move {
-            let Ok(ctx) = wait.await else { return };
-
-            let stream = source.call(ctx);
-            pin_mut!(stream);
-            while let Some(next) = stream.next().await {
-                sx.send(next).ok();
-            }
-        });
-
-        SpawnSource { rx, start }
-    }
-}
-
-#[cfg(feature = "tokio")]
-impl<S: 'static, C> Source<C> for SpawnSource<S, C>
-where
-    S: Source<C>,
-    C: 'static,
-{
-    type Item = S::Item;
-
-    type Stream<'a> = TokioChannelStream<S::Item>;
-
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        self.start.send(ctx).ok();
-        TokioChannelStream { rx: self.rx }
-    }
-}
 
 impl<T1, T2, C> Source<C> for Either<T1, T2>
 where
@@ -383,37 +258,5 @@ where
 
     fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
         self.source.call(ctx).try_flatten()
-    }
-}
-
-#[cfg(feature = "tokio")]
-#[derive(Debug)]
-pub struct Producer<T> {
-    sx: tokio::sync::mpsc::UnboundedSender<Result<T, Error>>,
-}
-
-#[cfg(feature = "tokio")]
-impl<T> Clone for Producer<T> {
-    fn clone(&self) -> Self {
-        Producer {
-            sx: self.sx.clone(),
-        }
-    }
-}
-
-#[cfg(feature = "tokio")]
-impl<T> Producer<T> {
-    pub fn new() -> (
-        Producer<T>,
-        tokio::sync::mpsc::UnboundedReceiver<Result<T, Error>>,
-    ) {
-        let (sx, rx) = tokio::sync::mpsc::unbounded_channel();
-        (Producer { sx }, rx)
-    }
-
-    pub fn send(&self, value: T) -> Result<(), Error> {
-        self.sx
-            .send(Ok(value))
-            .map_err(|_| Error::new("channel closed"))
     }
 }

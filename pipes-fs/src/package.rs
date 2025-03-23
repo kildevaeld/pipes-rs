@@ -128,10 +128,10 @@ impl Clone for Meta {
 }
 
 pub struct Package {
-    name: RelativePathBuf,
-    mime: Mime,
-    content: Body,
-    meta: Meta,
+    pub(crate) name: RelativePathBuf,
+    pub(crate) mime: Mime,
+    pub(crate) content: Body,
+    pub(crate) meta: Meta,
 }
 
 impl Package {
@@ -324,3 +324,10 @@ impl AsyncClone for Package {
 //         todo!()
 //     }
 // }
+
+pub struct TypedPackage<T> {
+    pub name: RelativePathBuf,
+    pub mime: Mime,
+    pub content: T,
+    pub meta: Meta,
+}

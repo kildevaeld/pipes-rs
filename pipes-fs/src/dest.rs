@@ -88,6 +88,16 @@ impl KravlDestination {
         }
     }
 
+    pub fn append_when<T>(mut self, filter: T) -> Self
+    where
+        T: Filter + 'static,
+    {
+        self.append.push(Box::new(filter));
+        self
+    }
+}
+
+impl KravlDestination {
     fn append(&self, pkg: &Package) -> bool {
         for filter in &self.append {
             if filter.append(pkg) {
@@ -95,14 +105,6 @@ impl KravlDestination {
             }
         }
         false
-    }
-
-    pub fn append_when<T>(mut self, filter: T) -> Self
-    where
-        T: Filter + 'static,
-    {
-        self.append.push(Box::new(filter));
-        self
     }
 }
 

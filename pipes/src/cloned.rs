@@ -1,4 +1,3 @@
-
 use alloc::boxed::Box;
 use async_stream::try_stream;
 use futures::{stream::BoxStream, Future, TryStreamExt};
@@ -17,7 +16,10 @@ impl<T> AsyncClone for T
 where
     T: Clone,
 {
-    type Future<'a> = futures::future::Ready<Result<Self, Error>> where T: 'a;
+    type Future<'a>
+        = futures::future::Ready<Result<Self, Error>>
+    where
+        T: 'a;
 
     fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
         futures::future::ready(Ok(self.clone()))
@@ -74,109 +76,3 @@ where
         })
     }
 }
-
-// pin_project! {
-
-//   pub struct AsyncClonedStream<'a, S: 'a, T1, T2>
-//   where
-//     S: Source,
-//     S::Item: AsyncClone,
-//     T1: Work<S::Item>,
-//     T2: Work<S::Item, Output = T1::Output>,
-//   {
-//     #[pin]
-//     stream: S::Stream<'a>,
-//     work1: T1,
-//     work2: T2,
-//     #[pin]
-//     future: Option<AsyncClonedState<'a, S, T1, T2>>
-//   }
-// }
-
-// pin_project! {
-//     #[project = AsyncCloneProj]
-//   pub enum AsyncClonedState<'a, S: 'a, T1, T2>
-//   where
-//     S: Source,
-//     S::Item: AsyncClone,
-//     T1: Work<S::Item>,
-//     T2: Work<S::Item, Output = T1::Output>,
-//   {
-//     Clone {
-//     #[pin]
-//       future: <S::Item as AsyncClone>::Future<'a>,
-//       value: S::Item,
-//     },
-//     Work {
-//         #[pin]
-//       future: futures::future::Join<T1::Future, T2::Future>
-//     }
-//   }
-// }
-
-// impl<'a, S, T1, T2> Future for AsyncClonedState<'a, S, T1, T2>
-// where
-//     S: Source,
-//     S::Item: AsyncClone,
-//     T1: Work<S::Item>,
-//     T2: Work<S::Item, Output = T1::Output>,
-// {
-//     type Output = Result<T1::Output, Error>;
-
-//     fn poll(
-//         self: core::pin::Pin<&mut Self>,
-//         cx: &mut core::task::Context<'_>,
-//     ) -> core::task::Poll<Self::Output> {
-//         loop {
-//             let this = self.as_mut().project();
-
-//             match this {
-//                 AsyncCloneProj::Clone { future } => {
-//                     match ready!(future.poll(cx)) {
-//                         Ok(ret) => {
-//                             self.set(AsyncClonedState::Work { future: () })
-//                         }
-//                     }
-//                 },
-//                 AsyncCloneProj::Work { future } => future.poll(cx),
-//             }
-//         }
-//     }
-// }
-
-// impl<'a, S, T1, T2> Stream for AsyncClonedStream<'a, S, T1, T2>
-// where
-//     S: Source,
-//     S::Item: AsyncClone,
-//     T1: Work<S::Item>,
-//     T2: Work<S::Item, Output = T1::Output>,
-// {
-//     type Item = Result<T1::Output, Error>;
-
-//     fn poll_next(
-//         mut self: core::pin::Pin<&mut Self>,
-//         cx: &mut core::task::Context<'_>,
-//     ) -> core::task::Poll<Option<Self::Item>> {
-//         loop {
-//             let mut this = self.as_mut().project();
-
-//             if let Some(future) = this.future.as_mut().as_pin_mut() {
-//                 match future.project() {
-//                     AsyncCloneProj::Clone { future } => match ready!(future.poll(cx)) {
-//                         Ok(ret) => this.future.set(Some(AsyncClonedState::Work {
-//                             future: futures::future::join(
-//                                 this.work1.call(Context {}, package),
-//                                 future2,
-//                             ),
-//                         })),
-//                         Err(err) => {
-//                             this.future.set(None);
-//                             return Poll::Ready(Some(Err(err)));
-//                         }
-//                     },
-//                     AsyncCloneProj::Work { future } => {}
-//                 };
-//             }
-//         }
-//     }
-// }
