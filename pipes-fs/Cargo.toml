@@ -31,3 +31,7 @@ toback = { git = "https://github.com/kildevaeld/toback-rs", features = [
   "json",
 ], optional = true }
 serde = { version = "1", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["fs", "io-util", "rt"] }
+serde = { version = "1", features = ["derive"] }

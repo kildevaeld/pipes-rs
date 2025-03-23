@@ -47,7 +47,7 @@ impl<'js> FromJs<'js> for JsPackageContent<'js> {
 }
 
 impl<'js> JsPackage<'js> {
-    pub async fn into_package(self, ctx: &Ctx<'js>) -> Result<Package, RuntimeError> {
+    pub async fn into_package(self, ctx: &Ctx<'js>) -> Result<Package<Body>, RuntimeError> {
         let body = match self.content {
             JsPackageContent::Buffer(buffer) => match buffer.as_raw() {
                 Some(raw) => Body::Bytes(raw.slice().to_vec().into()),

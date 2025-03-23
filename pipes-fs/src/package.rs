@@ -127,15 +127,15 @@ impl Clone for Meta {
     }
 }
 
-pub struct Package {
+pub struct Package<B> {
     pub(crate) name: RelativePathBuf,
     pub(crate) mime: Mime,
-    pub(crate) content: Body,
+    pub(crate) content: B,
     pub(crate) meta: Meta,
 }
 
-impl Package {
-    pub fn new(name: impl Into<RelativePathBuf>, mime: Mime, body: impl Into<Body>) -> Package {
+impl<B> Package<B> {
+    pub fn new(name: impl Into<RelativePathBuf>, mime: Mime, body: B) -> Package<B> {
         Package {
             name: name.into(),
             mime,
@@ -164,25 +164,23 @@ impl Package {
         &self.mime
     }
 
-    pub fn content(&self) -> &Body {
+    pub fn content(&self) -> &B {
         &self.content
     }
 
-    pub fn set_content(&mut self, content: impl Into<Body>) {
-        self.content = content.into();
+    pub fn content_mut(&mut self) -> &mut B {
+        &mut self.content
     }
 
-    pub fn take_content(&mut self) -> Body {
-        core::mem::replace(&mut self.content, Body::Empty)
+    pub fn take_content(&mut self) -> B
+    where
+        B: Default,
+    {
+        core::mem::replace(&mut self.content, B::default())
     }
 
-    pub async fn clone(&mut self) -> Result<Package, Error> {
-        Ok(Package {
-            name: self.name.clone(),
-            mime: self.mime.clone(),
-            content: self.content.clone().await?,
-            meta: self.meta.clone(),
-        })
+    pub fn replace_content(&mut self, content: B) -> B {
+        core::mem::replace(&mut self.content, content)
     }
 
     pub fn meta(&self) -> &Meta {
@@ -192,7 +190,9 @@ impl Package {
     pub fn meta_mut(&mut self) -> &mut Meta {
         &mut self.meta
     }
+}
 
+impl Package<Body> {
     pub async fn write_to(&mut self, path: impl AsRef<Path>) -> Result<(), Error> {
         let file_path = self.name.to_logical_path(path);
 
@@ -229,25 +229,46 @@ impl Package {
     }
 }
 
-pub trait IntoPackage {
-    type Future: Future<Output = Result<Package, Error>>;
+impl<B: AsyncClone + Send> AsyncClone for Package<B>
+where
+    for<'a> B::Future<'a>: Send,
+{
+    type Future<'a>
+        = BoxFuture<'a, Result<Package<B>, pipes::Error>>
+    where
+        Self: 'a;
+
+    fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
+        Box::pin(async move {
+            Ok(Package {
+                name: self.name.clone(),
+                mime: self.mime.clone(),
+                content: self.content.async_clone().await?,
+                meta: self.meta.clone(),
+            })
+        })
+    }
+}
+
+pub trait IntoPackage<B> {
+    type Future: Future<Output = Result<Package<B>, Error>>;
 
     fn into_package(self) -> Self::Future;
 }
 
-impl IntoPackage for Package {
-    type Future = futures::future::Ready<Result<Package, Error>>;
+impl<B> IntoPackage<B> for Package<B> {
+    type Future = futures::future::Ready<Result<Package<B>, Error>>;
     fn into_package(self) -> Self::Future {
         futures::future::ready(Ok(self))
     }
 }
 
-impl<T1, T2> IntoPackage for Either<T1, T2>
+impl<T1, T2, B> IntoPackage<B> for Either<T1, T2>
 where
-    T1: IntoPackage,
-    T2: IntoPackage,
+    T1: IntoPackage<B>,
+    T2: IntoPackage<B>,
 {
-    type Future = EitherIntoPackageFuture<T1, T2>;
+    type Future = EitherIntoPackageFuture<T1, T2, B>;
 
     fn into_package(self) -> Self::Future {
         match self {
@@ -263,7 +284,7 @@ where
 
 pin_project! {
     #[project = EitherFutureProj]
-    pub enum EitherIntoPackageFuture<T1, T2> where T1: IntoPackage, T2: IntoPackage {
+    pub enum EitherIntoPackageFuture<T1, T2, B> where T1: IntoPackage<B>, T2: IntoPackage<B> {
         T1 {
             #[pin]
             future: T1::Future
@@ -275,12 +296,12 @@ pin_project! {
     }
 }
 
-impl<T1, T2> Future for EitherIntoPackageFuture<T1, T2>
+impl<T1, T2, B> Future for EitherIntoPackageFuture<T1, T2, B>
 where
-    T1: IntoPackage,
-    T2: IntoPackage,
+    T1: IntoPackage<B>,
+    T2: IntoPackage<B>,
 {
-    type Output = Result<Package, Error>;
+    type Output = Result<Package<B>, Error>;
 
     fn poll(
         self: core::pin::Pin<&mut Self>,
@@ -293,41 +314,4 @@ where
             EitherFutureProj::T2 { future } => future.poll(cx),
         }
     }
-}
-
-impl AsyncClone for Package {
-    type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
-
-    fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
-        Box::pin(async move { self.clone().await })
-    }
-}
-
-// pub struct RenamePackage<T> {
-//     map: T,
-// }
-
-// impl<T> RenamePackage<T> {
-//     pub fn new(mapper: T) -> RenamePackage<T> {
-//         RenamePackage { map: mapper }
-//     }
-// }
-
-// impl<T, C> Work<C, Package> for RenamePackage<T> {
-//     type Output;
-
-//     type Future<'a>
-//     where
-//         Self: 'a;
-
-//     fn call<'a>(&'a self, ctx: C, package: Package) -> Self::Future<'a> {
-//         todo!()
-//     }
-// }
-
-pub struct TypedPackage<T> {
-    pub name: RelativePathBuf,
-    pub mime: Mime,
-    pub content: T,
-    pub meta: Meta,
 }

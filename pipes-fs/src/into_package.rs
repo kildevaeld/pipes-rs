@@ -6,14 +6,14 @@ use std::{marker::PhantomData, task::Poll};
 use crate::{IntoPackage, Package};
 
 #[derive(Debug)]
-pub struct IntoPackageWork<T, C> {
+pub struct IntoPackageWork<T, C, B> {
     pub(crate) worker: T,
-    pub(crate) ctx: PhantomData<C>,
+    pub(crate) ctx: PhantomData<(C, B)>,
 }
 
-impl<T: Copy, C> Copy for IntoPackageWork<T, C> {}
+impl<T: Copy, C, B> Copy for IntoPackageWork<T, C, B> {}
 
-impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
+impl<T: Clone, C, B> Clone for IntoPackageWork<T, C, B> {
     fn clone(&self) -> Self {
         IntoPackageWork {
             worker: self.worker.clone(),
@@ -22,20 +22,20 @@ impl<T: Clone, C> Clone for IntoPackageWork<T, C> {
     }
 }
 
-unsafe impl<T: Send, C> Send for IntoPackageWork<T, C> {}
+unsafe impl<T: Send, C, B> Send for IntoPackageWork<T, C, B> {}
 
-unsafe impl<T: Sync, C> Sync for IntoPackageWork<T, C> {}
+unsafe impl<T: Sync, C, B> Sync for IntoPackageWork<T, C, B> {}
 
-impl<T, C, R> Work<C, R> for IntoPackageWork<T, C>
+impl<T, C, B, R> Work<C, R> for IntoPackageWork<T, C, B>
 where
     T: Work<C, R>,
-    T::Output: IntoPackage,
+    T::Output: IntoPackage<B>,
     C: 'static,
 {
-    type Output = Package;
+    type Output = Package<B>;
 
     type Future<'a>
-        = IntoPackageWorkFuture<T::Future<'a>>
+        = IntoPackageWorkFuture<T::Future<'a>, B>
     where
         Self: 'a;
 
@@ -48,26 +48,26 @@ where
 
 pin_project! {
     #[project = Proj]
-    pub enum IntoPackageWorkFuture<T> where T: TryFuture, T::Ok: IntoPackage {
+    pub enum IntoPackageWorkFuture<T, B> where T: TryFuture, T::Ok: IntoPackage<B> {
        Work {
         #[pin]
         future: T
        },
        Convert {
         #[pin]
-        future: <T::Ok as IntoPackage>::Future
+        future: <T::Ok as IntoPackage<B>>::Future
        },
        Done
     }
 }
 
-impl<T> Future for IntoPackageWorkFuture<T>
+impl<T, B> Future for IntoPackageWorkFuture<T, B>
 where
     T: TryFuture,
-    T::Ok: IntoPackage,
+    T::Ok: IntoPackage<B>,
     T::Error: Into<pipes::Error>,
 {
-    type Output = Result<Package, pipes::Error>;
+    type Output = Result<Package<B>, pipes::Error>;
 
     fn poll(
         mut self: core::pin::Pin<&mut Self>,

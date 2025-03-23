@@ -17,10 +17,10 @@ impl FsWork {
 }
 
 impl<C> Work<C, RelativePathBuf> for FsWork {
-    type Output = Package;
+    type Output = Package<Body>;
 
     type Future<'a>
-        = BoxFuture<'a, Result<Package, pipes::Error>>
+        = BoxFuture<'a, Result<Package<Body>, pipes::Error>>
     where
         Self: 'a;
 

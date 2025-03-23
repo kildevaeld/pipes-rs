@@ -5,7 +5,7 @@ use mime::Mime;
 use pipes::{Dest, Error, Work};
 use tokio::io::AsyncWriteExt;
 
-use crate::{IntoPackage, Package};
+use crate::{Body, IntoPackage, Package};
 
 #[derive(Debug, Clone)]
 pub struct FsDest {
@@ -18,7 +18,7 @@ impl FsDest {
     }
 }
 
-impl<T: IntoPackage + Send> Dest<T> for FsDest
+impl<T: IntoPackage<Body> + Send> Dest<T> for FsDest
 where
     T::Future: Send,
     for<'a> T: 'a,
@@ -41,14 +41,14 @@ where
     }
 }
 
-impl<C, T: IntoPackage + Send> Work<C, T> for FsDest
+impl<C, T: IntoPackage<Body> + Send> Work<C, T> for FsDest
 where
     T::Future: Send,
     for<'a> T: 'a,
 {
-    type Output = Package;
+    type Output = Package<Body>;
 
-    type Future<'a> = BoxFuture<'a, Result<Package, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<Package<Body>, Error>>;
 
     fn call<'a>(&'a self, _ctx: C, req: T) -> Self::Future<'a> {
         let path = self.path.clone();
@@ -66,11 +66,11 @@ where
 }
 
 pub trait Filter: Send + Sync {
-    fn append(&self, pkg: &Package) -> bool;
+    fn append(&self, pkg: &Package<Body>) -> bool;
 }
 
 impl Filter for Mime {
-    fn append(&self, pkg: &Package) -> bool {
+    fn append(&self, pkg: &Package<Body>) -> bool {
         pkg.mime() == self
     }
 }
@@ -98,7 +98,7 @@ impl KravlDestination {
 }
 
 impl KravlDestination {
-    fn append(&self, pkg: &Package) -> bool {
+    fn append(&self, pkg: &Package<Body>) -> bool {
         for filter in &self.append {
             if filter.append(pkg) {
                 return true;
@@ -108,13 +108,13 @@ impl KravlDestination {
     }
 }
 
-impl Dest<Package> for KravlDestination {
+impl Dest<Package<Body>> for KravlDestination {
     type Future<'a>
         = BoxFuture<'a, Result<(), pipes::Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, mut req: Package) -> Self::Future<'a> {
+    fn call<'a>(&'a self, mut req: Package<Body>) -> Self::Future<'a> {
         Box::pin(async move {
             let path = req.path().to_logical_path(&self.root);
 
@@ -129,7 +129,7 @@ impl Dest<Package> for KravlDestination {
                     .open(&path)
                     .await
                     .map_err(pipes::Error::new)?;
-                let bytes = req.take_content().bytes().await?;
+                let bytes = req.replace_content(Body::Empty).bytes().await?;
                 file.write_all(&bytes).await.map_err(pipes::Error::new)?;
                 file.write_all(b"\n").await.map_err(pipes::Error::new)?;
             } else {
@@ -140,7 +140,7 @@ impl Dest<Package> for KravlDestination {
                     .open(&path)
                     .await
                     .map_err(pipes::Error::new)?;
-                let bytes = req.take_content().bytes().await?;
+                let bytes = req.replace_content(Body::Empty).bytes().await?;
                 file.write_all(&bytes).await.map_err(pipes::Error::new)?;
             }
 

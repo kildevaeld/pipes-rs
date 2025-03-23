@@ -2,7 +2,7 @@ use futures::future::BoxFuture;
 use pipes::Work;
 use std::sync::Arc;
 
-use crate::{Package, package::TypedPackage};
+use crate::{Body, Package};
 
 pub struct Serde<T>(Arc<toback::Toback<T>>)
 where
@@ -26,18 +26,18 @@ where
     }
 }
 
-impl<C, T> Work<C, Package> for Serde<T>
+impl<C, T> Work<C, Package<Body>> for Serde<T>
 where
     T: serde::de::DeserializeOwned + serde::ser::Serialize,
 {
-    type Output = TypedPackage<T>;
+    type Output = Package<T>;
 
     type Future<'a>
         = BoxFuture<'a, Result<Self::Output, pipes::Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, _ctx: C, mut package: Package) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: C, mut package: Package<Body>) -> Self::Future<'a> {
         Box::pin(async move {
             let Some(encoder) = self.0.encoder_from_path(package.path().as_str()) else {
                 return Err(pipes::Error::new(format!(
@@ -46,10 +46,10 @@ where
                 )));
             };
 
-            let body = package.take_content().bytes().await?;
+            let body = package.replace_content(Body::Empty).bytes().await?;
             let value = encoder.load(&body).map_err(pipes::Error::new)?;
 
-            Ok(TypedPackage {
+            Ok(Package {
                 name: package.name,
                 mime: package.mime,
                 content: value,

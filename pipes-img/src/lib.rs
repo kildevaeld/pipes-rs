@@ -154,8 +154,8 @@ impl<C> Work<C, Image> for Save<C>
 where
     C: 'static,
 {
-    type Output = Package;
-    type Future<'a> = SpawnBlockFuture<Package>;
+    type Output = Package<Body>;
+    type Future<'a> = SpawnBlockFuture<Package<Body>>;
     fn call<'a>(&'a self, _ctx: C, img: Image) -> Self::Future<'a> {
         let format = self.format;
         SpawnBlockFuture {
@@ -225,7 +225,7 @@ impl<C> Default for ImageWork<C> {
     }
 }
 
-impl<C> Work<C, Package> for ImageWork<C>
+impl<C> Work<C, Package<Body>> for ImageWork<C>
 where
     for<'a> C: 'a,
 {
@@ -233,9 +233,9 @@ where
 
     type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
 
-    fn call<'a>(&'a self, _ctx: C, mut pkg: Package) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<Body>) -> Self::Future<'a> {
         Box::pin(async move {
-            let bytes = pkg.take_content().bytes().await?;
+            let bytes = pkg.replace_content(Body::Empty).bytes().await?;
 
             let img = image::io::Reader::new(Cursor::new(bytes))
                 .with_guessed_format()

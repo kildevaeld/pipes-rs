@@ -32,7 +32,7 @@ impl FsSource {
 }
 
 impl<C> Source<C> for FsSource {
-    type Item = Package;
+    type Item = Package<Body>;
 
     type Stream<'a>
         = BoxStream<'a, Result<Self::Item, pipes::Error>>

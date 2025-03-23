@@ -99,8 +99,11 @@ impl FileResolver {
             async move {
                 let path = match pathdiff::diff_paths(m, &root) {
                     Some(path) => path,
-                    None => return Ok(None),
+                    None => {
+                        return Ok(None);
+                    }
                 };
+
                 Ok(RelativePathBuf::from_path(path).ok())
             }
         })

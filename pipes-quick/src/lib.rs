@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bindings::{JsPackage, Meta};
 use futures::future::BoxFuture;
 use pipes::{Work, Source};
-use pipes_fs::Package;
+use pipes_fs::{Body, Package};
 use relative_path::RelativePathBuf;
 use rquickjs::{CatchResultExt, Class, Function, Module, Object};
 use rquickjs_util::async_iterator::JsAsyncIterator;
@@ -24,7 +24,7 @@ impl QuickWork {
 }
 
 impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
-    type Output = pipes_util::ReceiverStream<Package>;
+    type Output = pipes_util::ReceiverStream<Package<Body>>;
 
     type Future<'a>
         = BoxFuture<'a, Result<Self::Output, pipes::Error>>
@@ -76,15 +76,15 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
 }
 
 
-impl<C: Send + Sync + 'static> Work<C, Package> for QuickWork {
-    type Output = pipes_util::ReceiverStream<Package>;
+impl<C: Send + Sync + 'static> Work<C, Package<Body>> for QuickWork {
+    type Output = pipes_util::ReceiverStream<Package<Body>>;
 
     type Future<'a>
         = BoxFuture<'a, Result<Self::Output, pipes::Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, ctx: C, mut pkg: Package) -> Self::Future<'a> {
+    fn call<'a>(&'a self, ctx: C, mut pkg: Package<Body>) -> Self::Future<'a> {
         Box::pin(async move {
             let vm = self.pool.get().await.map_err(pipes::Error::new)?;
             let (sx, rx) = pipes_util::channel(1);
@@ -93,7 +93,7 @@ impl<C: Send + Sync + 'static> Work<C, Package> for QuickWork {
                 return Ok(rx.call(ctx))
             }
 
-            let content = pkg.take_content().bytes().await?;
+            let content = pkg.replace_content(Body::Empty).bytes().await?;
 
             let path = if pkg.path().as_str().starts_with("./") {
                 pkg.path().to_relative_path_buf()
