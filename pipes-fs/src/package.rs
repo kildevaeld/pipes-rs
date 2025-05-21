@@ -25,6 +25,12 @@ pub enum Body {
     Empty,
 }
 
+impl Default for Body {
+    fn default() -> Self {
+        Body::Empty
+    }
+}
+
 impl Body {
     pub async fn bytes(mut self) -> Result<Bytes, Error> {
         self.load().await?;

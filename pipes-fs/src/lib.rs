@@ -5,6 +5,7 @@ mod resolver;
 #[cfg(feature = "serde")]
 mod serialize;
 mod source;
+mod spawn;
 mod work;
 mod work_ext;
 

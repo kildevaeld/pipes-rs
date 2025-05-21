@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, path::PathBuf, pin::Pin, sync::{Arc, 
 use bindings::{JsPackage, Meta};
 use klaver::{pool::VmPoolOptions};
 use pipes::{dest_fn, Dest, Pipeline, Source, SourceExt,  Unit, Work};
-use pipes_fs::{Mime, Package};
+use pipes_fs::{Body, Mime, Package};
 use pipes_util::ReceiverStream;
 use relative_path::RelativePathBuf;
 use rquickjs::{CatchResultExt, Class, Function, Module, Object, Value};
@@ -49,7 +49,7 @@ impl KravlSource {
 }
 
 impl<C> Source<C> for KravlSource {
-    type Item = Package;
+    type Item = Package<Body>;
 
     type Stream<'a> = ReceiverStream<Self::Item>
     where
@@ -86,7 +86,7 @@ impl<C> Source<C> for KravlSource {
 
                     while let Some(next) = ret.next().await.catch(&ctx)? {
                         let pkg = next.into_package(&ctx).await?;
-                        producer.send(pkg).await.ok();
+                        producer.send(Ok(pkg)).await.ok();
                     }
                     Ok(())
                 })
@@ -103,12 +103,12 @@ impl<C> Source<C> for KravlSource {
 }
 
 pub trait Filter {
-    fn append(&self, pkg: &Package) -> bool;
+    fn append(&self, pkg: &Package<Body>) -> bool;
 }
 
 
 impl Filter for Mime {
-    fn append(&self, pkg: &Package) -> bool {
+    fn append(&self, pkg: &Package<Body>) -> bool {
         pkg.mime() == self
     }
 }
@@ -126,7 +126,7 @@ impl KravlDestination {
         KravlDestination { open_files: Default::default(), root: path.into(), signal: Default::default(), append: Default::default() }
     }
 
-    fn append(&self, pkg: &Package) -> bool {
+    fn append(&self, pkg: &Package<Body>) -> bool {
         for filter in &self.append {
             if filter.append(pkg) {
                 return true
@@ -141,12 +141,12 @@ impl KravlDestination {
     }
 }
 
-impl Dest<Package> for KravlDestination {
+impl Dest<Package<Body>> for KravlDestination {
     type Future<'a> = Pin<Box<dyn Future<Output = Result<(), pipes::Error>> + 'a>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, mut req: Package) -> Self::Future<'a> {
+    fn call<'a>(&'a self, mut req: Package<Body>) -> Self::Future<'a> {
 
         Box::pin(async move {
             let path = req.path().to_logical_path(&self.root);

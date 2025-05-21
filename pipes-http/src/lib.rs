@@ -5,6 +5,7 @@ use futures::{Future, FutureExt, Stream, future::BoxFuture, stream::StreamExt};
 use http_body::Body as _;
 use mime::Mime;
 use pipes::{Error, Work};
+use pipes_fs::Body;
 use reqwest::{Client, Method, Request, Response, Url};
 
 pub fn get(url: &str) -> Result<Request, Error> {
@@ -99,7 +100,7 @@ impl From<HttpResponse> for Response {
 }
 
 #[cfg(feature = "fs")]
-impl pipes_fs::IntoPackage for HttpResponse {
+impl pipes_fs::IntoPackage<Body> for HttpResponse {
     type Future = ResponseIntoPackageFuture;
 
     fn into_package(self) -> Self::Future {
@@ -118,7 +119,7 @@ pin_project_lite::pin_project! {
 
 #[cfg(feature = "fs")]
 impl Future for ResponseIntoPackageFuture {
-    type Output = Result<pipes_fs::Package, Error>;
+    type Output = Result<pipes_fs::Package<Body>, Error>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
