@@ -10,6 +10,7 @@ mod cloned;
 mod cond;
 mod dest;
 mod error;
+mod matcher;
 mod pipeline;
 mod source;
 mod split;
@@ -20,8 +21,8 @@ mod work;
 mod wrap;
 
 pub use self::{
-    cloned::*, cond::*, dest::*, error::Error, pipeline::Pipeline, source::*, then::*, unit::*,
-    work::*,
+    cloned::*, cond::*, dest::*, error::Error, matcher::*, pipeline::Pipeline, source::*, then::*,
+    unit::*, work::*,
 };
 
 pub mod prelude {
