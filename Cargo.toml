@@ -10,5 +10,5 @@ members = [
   # "pipes-infinity",
   "kravl-core",
   "pipes-fs",
-  "pipes-http", "pipes-util", "pipes-quick",
+  "pipes-http", "pipes-util", "pipes-quick", "pipes-package",
 ]

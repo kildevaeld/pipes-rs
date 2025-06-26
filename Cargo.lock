@@ -822,7 +822,7 @@ dependencies = [
  "blocking",
  "cliclack",
  "futures",
- "relative-path",
+ "relative-path 1.9.3",
  "thiserror 2.0.12",
 ]
 
@@ -1275,7 +1275,7 @@ dependencies = [
  "pipes",
  "pipes-fs",
  "pipes-util",
- "relative-path",
+ "relative-path 1.9.3",
  "rquickjs",
  "rquickjs-util",
  "tokio",
@@ -1770,7 +1770,7 @@ dependencies = [
  "pathdiff",
  "pin-project-lite",
  "pipes",
- "relative-path",
+ "relative-path 1.9.3",
  "serde",
  "toback",
  "tokio",
@@ -1787,7 +1787,7 @@ dependencies = [
  "pin-project-lite",
  "pipes",
  "pipes-fs",
- "relative-path",
+ "relative-path 1.9.3",
  "reqwest",
 ]
 
@@ -1802,10 +1802,24 @@ dependencies = [
  "pin-project-lite",
  "pipes",
  "pipes-fs",
- "relative-path",
+ "relative-path 1.9.3",
  "reqwest",
  "tokio",
  "webp",
+]
+
+[[package]]
+name = "pipes-package"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "either",
+ "fast-glob",
+ "futures",
+ "mime",
+ "pin-project-lite",
+ "pipes",
+ "relative-path 2.0.1",
 ]
 
 [[package]]
@@ -1819,7 +1833,7 @@ dependencies = [
  "pipes",
  "pipes-fs",
  "pipes-util",
- "relative-path",
+ "relative-path 1.9.3",
  "rquickjs",
  "rquickjs-util",
  "tokio",
@@ -2045,6 +2059,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "relative-path"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bca40a312222d8ba74837cb474edef44b37f561da5f773981007a10bbaa992b0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2103,7 +2126,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c8db6379e204ef84c0811e90e7cc3e3e4d7688701db68a00d14a6db6849087b"
 dependencies = [
  "async-lock",
- "relative-path",
+ "relative-path 1.9.3",
  "rquickjs-sys",
 ]
 
@@ -2132,7 +2155,7 @@ dependencies = [
  "geenie",
  "oxc_resolver",
  "parking_lot",
- "relative-path",
+ "relative-path 1.9.3",
  "rquickjs",
  "rquickjs-util",
  "tracing",
