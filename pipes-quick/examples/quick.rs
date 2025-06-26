@@ -1,5 +1,5 @@
 use klaver::pool::VmPoolOptions;
-use pipes::{Pipeline, Unit, dest_fn, prelude::*};
+use pipes::{Pipeline, Unit, prelude::*, work_fn};
 use pipes_quick::QuickWork;
 use relative_path::RelativePathBuf;
 
@@ -27,16 +27,13 @@ async fn main() {
         QuickWork::new(pool.clone()),
     )
     .flatten()
-    .and(
-        pipes_fs::FsSource::new(".".into())
-            .pattern("./pipes-quick/examples/*.js")
-            .pipe(QuickWork::new(pool))
-            .flatten(),
-    )
-    .dest(dest_fn(|_| async move {
-        println!("HELLO");
-        Result::<_, pipes::Error>::Ok(())
-    }))
+    // .and(
+    //     pipes_fs::FsSource::new(".".into())
+    //         .pattern("./pipes-quick/examples/*.js")
+    //         .pipe(QuickWork::new(pool))
+    //         .flatten(),
+    // )
+    .unit()
     .run(())
     .await;
 }

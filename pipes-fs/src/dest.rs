@@ -34,9 +34,11 @@ where
             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
                 tokio::fs::create_dir_all(&path).await.map_err(Error::new)?
             }
-
             let mut package = req.into_package().await?;
-            package.write_to(&path).await?;
+
+            let file_path = package.path().to_logical_path(&path);
+
+            package.content_mut().write_to(&file_path).await?;
 
             Ok(package)
         })

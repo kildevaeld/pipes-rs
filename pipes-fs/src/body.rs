@@ -66,4 +66,43 @@ impl Body {
             _ => panic!("loaded"),
         }
     }
+
+    pub async fn write_to(&mut self, file_path: &Path) -> Result<(), Error> {
+        match self {
+            Body::Bytes(bs) => {
+                let mut file = tokio::fs::File::create(file_path)
+                    .await
+                    .map_err(Error::new)?;
+                file.write_all(&*bs).await.map_err(Error::new)?;
+                file.flush().await.map_err(Error::new)?;
+            }
+            Body::Stream(stream) => {
+                let mut file = tokio::fs::File::create(file_path)
+                    .await
+                    .map_err(Error::new)?;
+
+                let mut bytes = BytesMut::new();
+                while let Some(next) = stream.try_next().await? {
+                    file.write_all(&next).await.map_err(Error::new)?;
+                    bytes.put(next);
+                }
+
+                *self = Body::Bytes(bytes.freeze());
+
+                file.flush().await.map_err(Error::new)?;
+            }
+            Body::Path(path) => {
+                tokio::fs::copy(path, file_path).await.map_err(Error::new)?;
+            }
+            Body::Empty => {}
+        }
+
+        Ok(())
+    }
+}
+
+impl From<Bytes> for Body {
+    fn from(value: Bytes) -> Self {
+        Body::Bytes(value)
+    }
 }

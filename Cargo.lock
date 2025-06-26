@@ -1756,6 +1756,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "pipes-example"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "pipes",
+ "pipes-fs",
+ "pipes-http",
+ "pipes-img",
+ "pipes-package",
+ "tokio",
+]
+
+[[package]]
 name = "pipes-fs"
 version = "0.1.0"
 dependencies = [
@@ -1787,8 +1800,8 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "pipes",
- "pipes-fs",
- "relative-path 1.9.3",
+ "pipes-package",
+ "relative-path 2.0.1",
  "reqwest",
 ]
 
@@ -1802,8 +1815,8 @@ dependencies = [
  "mime",
  "pin-project-lite",
  "pipes",
- "pipes-fs",
- "relative-path 1.9.3",
+ "pipes-package",
+ "relative-path 2.0.1",
  "reqwest",
  "tokio",
  "webp",
@@ -1813,6 +1826,7 @@ dependencies = [
 name = "pipes-package"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bytes",
  "either",
  "fast-glob",
@@ -1832,9 +1846,9 @@ dependencies = [
  "klaver",
  "klaver-wintercg",
  "pipes",
- "pipes-fs",
+ "pipes-package",
  "pipes-util",
- "relative-path 1.9.3",
+ "relative-path 2.0.1",
  "rquickjs",
  "rquickjs-util",
  "tokio",

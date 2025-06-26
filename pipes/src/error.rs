@@ -1,11 +1,7 @@
 use alloc::boxed::Box;
 use core::fmt;
 
-#[cfg(feature = "std")]
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
-
-#[cfg(not(feature = "std"))]
-pub type BoxError = Box<dyn fmt::Debug + Send + Sync>;
+pub type BoxError = Box<dyn core::error::Error + Send + Sync>;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
@@ -36,9 +32,8 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
+impl core::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&*self.inner)
+        self.inner.source()
     }
 }

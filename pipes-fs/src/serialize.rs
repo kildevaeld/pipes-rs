@@ -29,7 +29,7 @@ where
 
 impl<C, T> Work<C, Package<Body>> for Serde<T>
 where
-    T: serde::de::DeserializeOwned + serde::ser::Serialize,
+    T: serde::de::DeserializeOwned + serde::ser::Serialize + Send,
 {
     type Output = Package<T>;
 
@@ -50,7 +50,7 @@ where
             let body = package.replace_content(Body::Empty).bytes().await?;
             let value = encoder.load(&body).map_err(pipes::Error::new)?;
 
-            Ok(package.map(|_| value))
+            Ok(package.map(|_| async move { value }).await)
         })
     }
 }

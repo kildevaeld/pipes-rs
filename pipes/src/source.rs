@@ -157,6 +157,7 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Filter<T, W> {
     source: T,
     work: W,
@@ -237,6 +238,7 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Flatten<S> {
     source: S,
 }

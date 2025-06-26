@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use pipes::{SourceExt, Unit, work_fn};
-use pipes_fs::{FsSource, Package, Serde};
+use pipes_fs::{FsSource, Serde};
+use pipes_package::Package;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Test {

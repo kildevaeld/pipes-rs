@@ -24,6 +24,7 @@ pub trait UnitExt<C>: Unit<C> {
 
 impl<T, C> UnitExt<C> for T where T: Unit<C> {}
 
+#[derive(Debug, Clone, Copy)]
 pub struct SourceUnit<S> {
     source: S,
 }

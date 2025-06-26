@@ -13,5 +13,11 @@ members = [
   "pipes-http",
   "pipes-util",
   "pipes-quick",
-  "pipes-package",
+  "pipes-package", "pipes-example",
 ]
+
+
+[workspace.dependencies]
+relative-path = { version = "2", default-features = false }
+mime = { version = "0.3", default-features = false }
+bytes = { version = "1", default-features = false }

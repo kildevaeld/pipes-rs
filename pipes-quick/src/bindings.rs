@@ -1,6 +1,6 @@
 use klaver::{RuntimeError, modules::GlobalInfo};
 use klaver_wintercg::{console::ConsoleWriter, streams::ReadableStream};
-use pipes_fs::{Body, Mime, Package};
+use pipes_package::{Bytes, Mime, Package};
 use rquickjs::{Ctx, FromJs, Object};
 use rquickjs_util::{Buffer, StringRef, Val};
 use std::{borrow::Cow, str::FromStr};
@@ -47,29 +47,27 @@ impl<'js> FromJs<'js> for JsPackageContent<'js> {
 }
 
 impl<'js> JsPackage<'js> {
-    pub async fn into_package(self, ctx: &Ctx<'js>) -> Result<Package<Body>, RuntimeError> {
+    pub async fn into_package(self, ctx: &Ctx<'js>) -> Result<Package<Bytes>, RuntimeError> {
         let body = match self.content {
             JsPackageContent::Buffer(buffer) => match buffer.as_raw() {
-                Some(raw) => Body::Bytes(raw.slice().to_vec().into()),
-                None => Body::Empty,
+                Some(raw) => raw.slice().to_vec().into(),
+                None => Bytes::new(),
             },
             JsPackageContent::Json(json) => {
                 //
                 match ctx.json_stringify(json)? {
-                    Some(ret) => Body::Bytes(ret.to_string()?.into()),
-                    None => Body::Empty,
+                    Some(ret) => ret.to_string()?.into(),
+                    None => Bytes::default(),
                 }
             }
-            JsPackageContent::Stream(stream) => {
-                Body::Bytes(stream.to_bytes(ctx.clone()).await?.into())
-            }
-            JsPackageContent::String(string) => Body::Bytes(string.as_bytes().to_vec().into()),
+            JsPackageContent::Stream(stream) => stream.to_bytes(ctx.clone()).await?.into(),
+            JsPackageContent::String(string) => string.as_bytes().to_vec().into(),
         };
 
         let mime = if let Some(mime) = self.mime {
             Mime::from_str(mime.as_str()).unwrap()
         } else {
-            pipes_fs::mime::APPLICATION_OCTET_STREAM
+            pipes_package::mime::APPLICATION_OCTET_STREAM
         };
 
         Ok(Package::new(self.name.as_str(), mime, body))

@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 pipes = { path = "../pipes" }
-pipes-fs = { path = "../pipes-fs" }
+pipes-package = { path = "../pipes-package" }
 pipes-util = { path = "../pipes-util" }
 
 rquickjs = { version = "0.8" }
@@ -16,7 +16,7 @@ klaver-wintercg = { git = "https://github.com/fairy-render/klaver" }
 
 deadpool = { version = "0.12" }
 
-relative-path = { version = "1", features = ["serde"] }
+relative-path = { workspace = true, features = ["serde"] }
 futures = { version = "0.3" }
 tokio = { version = "1", features = ["rt"] }
 

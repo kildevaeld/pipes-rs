@@ -5,17 +5,17 @@ edition = "2021"
 
 [dependencies]
 pipes = { path = "../pipes" }
-pipes-fs = { path = "../pipes-fs" }
+pipes-package = { path = "../pipes-package" }
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
     "png",
     "webp",
 ] }
-mime = { version = "0.3" }
-relative-path = { version = "1" }
+mime = { workspace = true }
+relative-path = { workspace = true }
 futures = { version = "0.3", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["rt"] }
-bytes = { version = "1", default-features = false }
+bytes = { workspace = true, default-features = false }
 pin-project-lite = { version = "0.2" }
 webp = { version = "0.3" }
 

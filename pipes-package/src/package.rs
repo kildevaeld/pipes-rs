@@ -13,6 +13,8 @@ use pipes::{AsyncClone, Error};
 
 pub use mime::{self, Mime};
 
+use crate::Content;
+
 trait ToAny {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -142,26 +144,37 @@ impl<B> Package<B> {
         &mut self.meta
     }
 
-    pub fn map<F, C>(self, content: F) -> Package<C>
-    where
-        F: FnOnce(B) -> C,
-    {
+    pub fn map_content<T>(self, content: T) -> Package<T> {
         Package {
             name: self.name,
             mime: self.mime,
-            content: content(self.content),
+            content,
             meta: self.meta,
         }
     }
 
-    pub fn try_map<F, C, E>(self, content: F) -> Result<Package<C>, E>
+    pub async fn map<F, U, C>(self, content: F) -> Package<C>
     where
-        F: FnOnce(B) -> Result<C, E>,
+        F: FnOnce(B) -> U,
+        U: Future<Output = C>,
+    {
+        Package {
+            name: self.name,
+            mime: self.mime,
+            content: content(self.content).await,
+            meta: self.meta,
+        }
+    }
+
+    pub async fn try_map<F, U, C, E>(self, content: F) -> Result<Package<C>, E>
+    where
+        F: FnOnce(B) -> U,
+        U: Future<Output = Result<C, E>>,
     {
         Ok(Package {
             name: self.name,
             mime: self.mime,
-            content: content(self.content)?,
+            content: content(self.content).await?,
             meta: self.meta,
         })
     }
