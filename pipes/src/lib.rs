@@ -8,7 +8,6 @@ extern crate std;
 mod and;
 mod cloned;
 mod cond;
-mod dest;
 mod error;
 mod matcher;
 mod pipeline;
@@ -21,8 +20,8 @@ mod work;
 mod wrap;
 
 pub use self::{
-    cloned::*, cond::*, dest::*, error::Error, matcher::*, pipeline::Pipeline, source::*, then::*,
-    unit::*, work::*,
+    cloned::*, cond::*, error::Result, error::*, matcher::*, pipeline::Pipeline, source::*,
+    then::*, unit::*, work::*,
 };
 
 pub mod prelude {

@@ -1,11 +1,12 @@
 use std::path::PathBuf;
 
 use crate::{
-    Body, Package,
+    Body,
     resolver::{FileResolver, Matcher},
 };
 use futures::{StreamExt, TryStreamExt, pin_mut, stream::BoxStream};
 use pipes::Source;
+use pipes_package::Package;
 
 pub struct FsSource {
     root: FileResolver,
@@ -39,7 +40,7 @@ impl<C> Source<C> for FsSource {
     where
         Self: 'a;
 
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn start<'a>(self, _ctx: C) -> Self::Stream<'a> {
         async_stream::try_stream! {
             let root = self.root.root().to_path_buf();
 

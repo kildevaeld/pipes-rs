@@ -4,6 +4,7 @@ mod matcher;
 mod package;
 
 pub use self::{
+    into_package::{IntoPackageWork, IntoPackageWorkFuture},
     matcher::*,
     package::{IntoPackage, Meta, Package},
 };

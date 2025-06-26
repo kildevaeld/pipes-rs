@@ -53,7 +53,7 @@ impl<C, T: 'static> Source<C> for Receiver<T> {
 
     type Stream<'a> = ReceiverStream<T>;
 
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn start<'a>(self, _ctx: C) -> Self::Stream<'a> {
         ReceiverStream { rx: self.rx }
     }
 }

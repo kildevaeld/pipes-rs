@@ -1,80 +1,26 @@
-use std::path::PathBuf;
-
-use pipes::{
-    cond,
-    fs::FsWork,
-    http::{get, HttpWork},
-    work_fn, Error, FsDest, NoopWork, Package, Pipeline, SourceExt, Unit, WorkExt,
-};
-use reqwest::Client;
-
-pub fn pipe<C, T>(source: T) -> Pipeline<T, NoopWork, C> {
-    Pipeline::new(source)
-}
+use futures::{StreamExt, TryStreamExt};
+use pipes::{pipe, work_fn, Error, Source, SourceExt, Unit};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let p2 = pipe(vec![
-        get("https://lightningcss.dev/playground/index.html"),
-        get("https://dr.dk"),
-        get("https://docs.rs/reqwest/latest/reqwest/struct.Url.html"),
-        get("https://distrowatch.com/dwres.php?resource=headlines"),
-    ])
-    .pipe(HttpWork::new(Client::new()).into_package())
-    .concurrent()
-    .spawn()
-    .and(
-        Pipeline::new(vec![Result::<_, Error>::Ok(PathBuf::from("./Cargo.toml"))])
-            .pipe(FsWork.into_package()),
-    );
-
-    let pipeline = p2
-        .pipe(
-            cond(
-                |pkg: &Package| pkg.mime() == &mime::TEXT_HTML_UTF_8,
-                work_fn(|ctx, pkg: Package| {
-                    async move {
-                        //
-                        // let bytes = pkg.take_content().bytes().await?;
-                        // let str = core::str::from_utf8(&bytes).map_err(Error::new)?;
-
-                        println!("HTML: {}", pkg.name());
-                        Result::<_, Error>::Ok(pkg)
-                    }
-                }),
-            )
-            .into_package(),
-        )
-        // .filter(work_fn(|ctx, pkg: Package| async move {
-        //     if pkg.mime() == &mime::TEXT_HTML_UTF_8 {
-        //         Result::<_, Error>::Ok(None)
-        //     } else {
-        //         Ok(Some(pkg))
-        //     }
-        // }))
-        .cloned(
-            work_fn(|ctx, package: Package| async move {
-                println!("Clone 1");
-                Result::<_, Error>::Ok(package)
-            }),
-            work_fn(|ctx, package: Package| async move {
-                println!("Clone 2");
-                Result::<_, Error>::Ok(package)
-            }),
-        )
-        .pipe(work_fn(|ctx, package: Package| async move {
-            println!("Worker!!");
-            Result::<_, Error>::Ok(package)
+    let pipe = pipe(vec![Result::<_, Error>::Ok("Hello")])
+        .pipe(work_fn(|ctx, pkg| async move {
+            println!("Work {pkg}");
+            pipes::Result::Ok("Other")
         }))
-        .pipe(work_fn(|ctx, package: Package| async move {
-            println!("Worker 2!!");
-            Result::<_, Error>::Ok(package)
-        }))
-        .concurrent()
-        .spawn()
-        .dest(FsDest::new("test"));
+        .pipe(work_fn(|ctx, pkg| async move {
+            println!("Work 2: {pkg}");
+            pipes::Result::Ok("next other")
+        }));
 
-    let out = pipeline.run(()).await;
+    pipe.start(())
+        .try_for_each_concurrent(10, |rx| async move {
+            //
+            println!("Output {}", rx);
+            Ok(())
+        })
+        .await
+        .unwrap();
 
-    println!("out: {:?}", out)
+    // pipe.run(()).await;
 }

@@ -23,4 +23,3 @@ tokio = { version = "1", features = ["full"] }
 [[example]]
 name = "pipes"
 path = "examples/pipes.rs"
-required-features = ["http", "fs"]

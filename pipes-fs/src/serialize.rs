@@ -1,8 +1,9 @@
 use futures::future::BoxFuture;
 use pipes::Work;
+use pipes_package::Package;
 use std::sync::Arc;
 
-use crate::{Body, Package};
+use crate::Body;
 
 pub struct Serde<T>(Arc<toback::Toback<T>>)
 where
@@ -49,12 +50,7 @@ where
             let body = package.replace_content(Body::Empty).bytes().await?;
             let value = encoder.load(&body).map_err(pipes::Error::new)?;
 
-            Ok(Package {
-                name: package.name,
-                mime: package.mime,
-                content: value,
-                meta: package.meta,
-            })
+            Ok(package.map(|_| value))
         })
     }
 }

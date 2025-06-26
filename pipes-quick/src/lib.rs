@@ -70,7 +70,7 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
                 }
             });
             
-            Ok(rx.call(ctx))
+            Ok(rx.start(ctx))
         })
     }
 }
@@ -90,7 +90,7 @@ impl<C: Send + Sync + 'static> Work<C, Package<Body>> for QuickWork {
             let (sx, rx) = pipes_util::channel(1);
 
             if pkg.path().extension() != Some("ts") && pkg.path().extension() != Some("js") {
-                return Ok(rx.call(ctx))
+                return Ok(rx.start(ctx))
             }
 
             let content = pkg.replace_content(Body::Empty).bytes().await?;
@@ -139,7 +139,7 @@ impl<C: Send + Sync + 'static> Work<C, Package<Body>> for QuickWork {
                 }
             });
             
-            Ok(rx.call(ctx))
+            Ok(rx.start(ctx))
         })
     }
 }

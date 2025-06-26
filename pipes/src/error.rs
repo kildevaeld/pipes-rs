@@ -7,6 +7,8 @@ pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
 #[cfg(not(feature = "std"))]
 pub type BoxError = Box<dyn fmt::Debug + Send + Sync>;
 
+pub type Result<T> = core::result::Result<T, Error>;
+
 #[derive(Debug)]
 pub struct Error {
     inner: BoxError,
