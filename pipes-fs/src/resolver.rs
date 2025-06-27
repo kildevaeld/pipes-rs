@@ -8,7 +8,7 @@ use pipes::Matcher;
 use relative_path::{RelativePath, RelativePathBuf};
 
 pub struct FileResolver {
-    patterns: Vec<Box<dyn Matcher<RelativePath>>>,
+    patterns: Vec<Box<dyn Matcher<RelativePathBuf>>>,
     root: PathBuf,
 }
 
@@ -22,7 +22,7 @@ impl FileResolver {
 }
 
 impl FileResolver {
-    pub fn pattern<M: Matcher<RelativePath> + 'static>(mut self, pattern: M) -> Self {
+    pub fn pattern<M: Matcher<RelativePathBuf> + 'static>(mut self, pattern: M) -> Self {
         self.patterns.push(Box::new(pattern));
         self
     }

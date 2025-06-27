@@ -13,7 +13,7 @@ tokio = { version = "1", features = ["fs", "io-util"] }
 async-walkdir = { version = "2" }
 fast-glob = { version = "0.4" }
 async-stream = { version = "0.3" }
-relative-path = { version = "2", features = ["serde"] }
+relative-path = { workspace = true, features = ["serde", "std"] }
 futures = { version = "0.3" }
 pathdiff = { version = "0.2" }
 

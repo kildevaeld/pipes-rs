@@ -9,7 +9,7 @@ pin-project-lite = { version = "0.2" }
 futures = { version = "0.3" }
 either = { version = "1" }
 mime = { workspace = true }
-relative-path = { workspace = true, features = ["serde"] }
+relative-path = { workspace = true, features = ["serde", "alloc"] }
 fast-glob = { version = "0.4" }
 bytes = { workspace = true }
 

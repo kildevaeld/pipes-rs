@@ -14,7 +14,7 @@ impl<T> WithPath for Package<T> {
     }
 }
 
-impl WithPath for &RelativePath {
+impl<'a> WithPath for &'a RelativePath {
     fn path(&self) -> &RelativePath {
         self
     }

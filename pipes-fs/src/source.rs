@@ -4,7 +4,7 @@ use crate::{Body, resolver::FileResolver};
 use futures::{StreamExt, TryStreamExt, pin_mut, stream::BoxStream};
 use pipes::{Matcher, Source};
 use pipes_package::Package;
-use relative_path::RelativePath;
+use relative_path::{RelativePath, RelativePathBuf};
 
 pub struct FsSource {
     root: FileResolver,
@@ -23,7 +23,7 @@ impl FsSource {
         }
     }
 
-    pub fn pattern<T: Matcher<RelativePath> + 'static>(self, pattern: T) -> Self {
+    pub fn pattern<T: Matcher<RelativePathBuf> + 'static>(self, pattern: T) -> Self {
         Self {
             root: self.root.pattern(pattern),
         }
