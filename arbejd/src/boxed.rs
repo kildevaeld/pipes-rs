@@ -1,9 +1,9 @@
-use super::handler::Handler;
+use super::work::Work;
 use alloc::boxed::Box;
 use core::marker::PhantomData;
 use heather::{HBoxFuture, HSend, HSendSync, Hrc};
 
-pub trait DynHandler<B, C>: HSendSync {
+pub trait DynWork<C, B>: HSendSync {
     type Output;
     type Error;
 
@@ -15,41 +15,40 @@ pub trait DynHandler<B, C>: HSendSync {
 }
 
 #[cfg(not(feature = "send"))]
-pub fn box_handler<'a, C, B, T>(handler: T) -> BoxHandler<'a, B, C, T::Output, T::Error>
+pub fn box_work<'a, C, B, T>(handler: T) -> BoxWork<'a, C, B, T::Output, T::Error>
 where
-    T: Handler<B, C> + 'a,
-    B: HSend + 'static,
+    T: Work<C, B> + 'a,
+    B: HSend + 'a,
     C: HSendSync + 'a,
 {
-    BoxHandler {
-        inner: Hrc::from(HandlerBox(handler, PhantomData, PhantomData)),
+    BoxWork {
+        inner: Hrc::from(WorkBox(handler, PhantomData, PhantomData)),
     }
 }
 
 #[cfg(feature = "send")]
-pub fn box_handler<C, B, T>(handler: T) -> BoxHandler<'static, B, C, T::Output, T::Error>
+pub fn box_work<C, B, T>(handler: T) -> BoxWork<'static, C, B, T::Output, T::Error>
 where
-    T: Handler<B, C> + 'static,
+    T: Work<C, B> + HSendSync + 'static,
     B: HSend + 'static,
     C: HSendSync + 'static,
+    for<'a> T::Future<'a>: Send,
 {
-    use crate::Handler;
-
-    BoxHandler {
-        inner: Hrc::from(HandlerBox(handler, PhantomData, PhantomData)),
+    BoxWork {
+        inner: Hrc::from(WorkBox(handler, PhantomData, PhantomData)),
     }
 }
 
-pub struct HandlerBox<B, C, T>(T, PhantomData<C>, PhantomData<B>);
+pub struct WorkBox<C, B, T>(T, PhantomData<C>, PhantomData<B>);
 
-unsafe impl<B, C, T: Send> Send for HandlerBox<B, C, T> {}
+unsafe impl<B, C, T: Send> Send for WorkBox<B, C, T> {}
 
-unsafe impl<B, C, T: Sync> Sync for HandlerBox<B, C, T> {}
+unsafe impl<B, C, T: Sync> Sync for WorkBox<B, C, T> {}
 
 #[cfg(not(feature = "send"))]
-impl<B, C, T> DynHandler<B, C> for HandlerBox<B, C, T>
+impl<C, B, T> DynWork<C, B> for WorkBox<C, B, T>
 where
-    T: Handler<B, C>,
+    T: Work<C, B>,
     C: HSendSync,
     B: HSend,
 {
@@ -65,11 +64,12 @@ where
 }
 
 #[cfg(feature = "send")]
-impl<B, C, T> DynHandler<B, C> for HandlerBox<B, C, T>
+impl<B, C, T> DynWork<C, B> for WorkBox<C, B, T>
 where
-    T: Handler<B, C> + 'static,
+    T: Work<C, B> + HSendSync + 'static,
     C: HSendSync + 'static,
     B: HSend,
+    for<'a> T::Future<'a>: Send,
 {
     type Error = T::Error;
     type Output = T::Output;
@@ -82,21 +82,21 @@ where
     }
 }
 
-pub struct BoxHandler<'a, B, C, O, E> {
-    inner: Hrc<dyn DynHandler<B, C, Error = E, Output = O> + 'a>,
+pub struct BoxWork<'a, C, B, O, E> {
+    inner: Hrc<dyn DynWork<C, B, Error = E, Output = O> + 'a>,
 }
 
-unsafe impl<'a, B, C, O, E> Send for BoxHandler<'a, B, C, O, E> where
-    Hrc<dyn DynHandler<B, C, Output = O, Error = E> + 'a>: Send
+unsafe impl<'a, B, C, O, E> Send for BoxWork<'a, C, B, O, E> where
+    Hrc<dyn DynWork<C, B, Output = O, Error = E> + 'a>: Send
 {
 }
 
-unsafe impl<'a, B, C, O, E> Sync for BoxHandler<'a, B, C, O, E> where
-    Hrc<dyn DynHandler<B, C, Output = O, Error = E> + 'a>: Sync
+unsafe impl<'a, C, B, O, E> Sync for BoxWork<'a, C, B, O, E> where
+    Hrc<dyn DynWork<C, B, Output = O, Error = E> + 'a>: Sync
 {
 }
 
-impl<'c, B, C, O, E> Handler<B, C> for BoxHandler<'c, B, C, O, E> {
+impl<'c, C, B, O, E> Work<C, B> for BoxWork<'c, C, B, O, E> {
     type Output = O;
     type Error = E;
 
@@ -111,7 +111,7 @@ impl<'c, B, C, O, E> Handler<B, C> for BoxHandler<'c, B, C, O, E> {
     }
 }
 
-impl<'a, B, C, O, E> Clone for BoxHandler<'a, B, C, O, E> {
+impl<'a, B, C, O, E> Clone for BoxWork<'a, B, C, O, E> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),

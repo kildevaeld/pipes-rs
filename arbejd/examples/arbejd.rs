@@ -1,16 +1,27 @@
 use std::convert::Infallible;
 
-use arbejd::{Handler, box_handler, work_fn};
+use arbejd::{Work, prelude::*, when, work_fn};
 
 #[tokio::main]
 async fn main() {
-    let test = work_fn(|ctx: &(), req: u32| async move {
-        Result::<_, Infallible>::Ok(format!("Hello, {req}"))
-    });
+    let test = when(
+        |v: &u32| *v == 41,
+        work_fn(|ctx: i32, req: u32| async move {
+            Result::<_, Infallible>::Ok(format!("Hello, {req}: {ctx}"))
+        }),
+    );
 
-    let handler = box_handler(test);
+    // let test = work_fn(|ctx: i32, req: u32| async move {
+    //     Result::<_, Infallible>::Ok(format!("Hello, {req}: {ctx}"))
+    // });
 
-    let out = tokio::spawn(async move { handler.call(&(), 42).await }).await;
+    let handler = test
+        .pipe(work_fn(
+            |ctx, req| async move { Ok(format!("Hello {req}")) },
+        ))
+        .boxed();
+
+    let out = tokio::spawn(async move { handler.call(&100, 42).await }).await;
 
     println!("{:?}", out);
 }

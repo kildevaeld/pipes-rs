@@ -48,6 +48,7 @@ dependencies = [
 name = "arbejd"
 version = "0.1.0"
 dependencies = [
+ "either",
  "futures-core",
  "heather",
  "pin-project-lite",

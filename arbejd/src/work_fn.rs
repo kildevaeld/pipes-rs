@@ -1,13 +1,12 @@
 use core::task::Poll;
 
-use crate::Handler;
+use crate::Work;
 use futures_core::{TryFuture, ready};
-use heather::{HSend, HSendSync};
 use pin_project_lite::pin_project;
 
 pub fn work_fn<T, C, R, U>(func: T) -> WorkFn<T>
 where
-    T: Fn(&C, R) -> U,
+    T: Fn(C, R) -> U,
     U: TryFuture,
 {
     WorkFn(func)
@@ -16,10 +15,11 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct WorkFn<T>(pub(crate) T);
 
-impl<T, U, C, R> Handler<R, C> for WorkFn<T>
+impl<T, U, C, R> Work<C, R> for WorkFn<T>
 where
-    T: Fn(&C, R) -> U + 'static + HSendSync,
-    U: TryFuture + HSend,
+    T: Fn(C, R) -> U,
+    U: TryFuture,
+    C: Clone,
 {
     type Output = U::Ok;
     type Error = U::Error;
@@ -30,7 +30,7 @@ where
         C: 'a;
     fn call<'a>(&'a self, ctx: &'a C, package: R) -> Self::Future<'a> {
         WorkFnFuture {
-            future: (self.0)(ctx, package),
+            future: (self.0)(ctx.clone(), package),
         }
     }
 }

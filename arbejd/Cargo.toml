@@ -4,15 +4,15 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-# default = ["send", "alloc"]
+default = ["alloc", "send"]
 send = ["heather/send"]
 alloc = ["heather/alloc"]
 
 [dependencies]
 heather = { git = "https://github.com/kildevaeld/heather", features = [] }
-futures-core = { version = "0.3" }
-pin-project-lite = { version = "*" }
-
+futures-core = { version = "0.3", default-features = false }
+pin-project-lite = { version = "0.2" }
+either = { version = "1", default-features = false }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

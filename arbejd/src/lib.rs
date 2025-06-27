@@ -5,10 +5,19 @@ extern crate alloc;
 
 #[cfg(feature = "alloc")]
 mod boxed;
-mod handler;
-mod handler_fn;
-
-pub use self::{handler::*, handler_fn::*};
+mod matcher;
+pub mod pipe;
+pub mod then;
+mod util;
+pub mod when;
+mod work;
+mod work_ext;
+mod work_fn;
+pub use self::{matcher::Matcher, when::when, work::*, work_fn::*};
 
 #[cfg(feature = "alloc")]
-pub use self::boxed::{BoxHandler, box_handler};
+pub use self::boxed::{BoxWork, box_work};
+
+pub mod prelude {
+    pub use super::work_ext::*;
+}
