@@ -71,7 +71,7 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
                 }
             });
             
-            Ok(rx.start(ctx))
+            Ok(rx.create_stream(ctx))
         })
     }
 }
@@ -91,7 +91,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
             let (sx, rx) = pipes_util::channel(1);
 
             if pkg.path().extension() != Some("ts") && pkg.path().extension() != Some("js") {
-                return Ok(rx.start(ctx))
+                return Ok(rx.create_stream(ctx))
             }
 
 
@@ -141,7 +141,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
                 }
             });
             
-            Ok(rx.start(ctx))
+            Ok(rx.create_stream(ctx))
         })
     }
 }

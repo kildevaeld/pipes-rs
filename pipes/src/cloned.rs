@@ -61,9 +61,9 @@ where
 
     type Stream<'a> = BoxStream<'a, Result<T1::Output, Error>>;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         Box::pin(try_stream! {
-            let stream = self.source.start(ctx.clone());
+            let stream = self.source.create_stream(ctx.clone());
             futures::pin_mut!(stream);
 
             while let Some(mut item) = stream.try_next().await? {

@@ -44,8 +44,11 @@ where
     where
         T1: 'a,
         T2: 'a;
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
-        futures::stream::select(self.left.start(ctx.clone()), self.right.start(ctx))
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+        futures::stream::select(
+            self.left.create_stream(ctx.clone()),
+            self.right.create_stream(ctx),
+        )
     }
 }
 

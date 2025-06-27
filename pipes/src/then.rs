@@ -46,9 +46,9 @@ where
 
     type Stream<'a> = ThenStream<'a, T1, T2, C>;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         ThenStream {
-            stream: self.left.start(ctx.clone()),
+            stream: self.left.create_stream(ctx.clone()),
             work: self.right,
             future: None,
             ctx,

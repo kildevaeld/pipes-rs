@@ -44,7 +44,7 @@ where
 
     fn run<'a>(self, ctx: C) -> Self::Future<'a> {
         SourceUnitFure {
-            stream: self.source.start(ctx),
+            stream: self.source.create_stream(ctx),
         }
     }
 }

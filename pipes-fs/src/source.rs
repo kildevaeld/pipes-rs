@@ -38,7 +38,7 @@ impl<C> Source<C> for FsSource {
     where
         Self: 'a;
 
-    fn start<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
         async_stream::try_stream! {
             let root = self.root.root().to_path_buf();
 

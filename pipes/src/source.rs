@@ -11,13 +11,13 @@ pub trait Source<C> {
     type Stream<'a>: Stream<Item = Result<Self::Item, Error>>
     where
         Self: 'a;
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a>;
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a>;
 }
 
 impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>;
-    fn start<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::iter(self)
     }
 }
@@ -27,7 +27,7 @@ impl<T: 'static, C> Source<C> for Result<T, Error> {
 
     type Stream<'a> = futures::stream::Once<futures::future::Ready<Result<T, Error>>>;
 
-    fn start<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::once(futures::future::ready(self))
     }
 }
@@ -103,13 +103,13 @@ where
         T1: 'a,
         T2: 'a;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         match self {
             Self::Left(left) => EitherSourceStream::T1 {
-                stream: left.start(ctx),
+                stream: left.create_stream(ctx),
             },
             Self::Right(left) => EitherSourceStream::T2 {
-                stream: left.start(ctx),
+                stream: left.create_stream(ctx),
             },
         }
     }
@@ -183,9 +183,9 @@ where
         T: 'a,
         W: 'a;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         FilterStream {
-            stream: self.source.start(ctx.clone()),
+            stream: self.source.create_stream(ctx.clone()),
             work: self.work,
             future: None,
             ctx,
@@ -255,7 +255,7 @@ where
     where
         S: 'a;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
-        self.source.start(ctx).try_flatten()
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+        self.source.create_stream(ctx).try_flatten()
     }
 }

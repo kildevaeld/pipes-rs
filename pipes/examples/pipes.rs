@@ -13,7 +13,7 @@ async fn main() {
             pipes::Result::Ok("next other")
         }));
 
-    pipe.start(())
+    pipe.create_stream(())
         .try_for_each_concurrent(10, |rx| async move {
             //
             println!("Output {}", rx);

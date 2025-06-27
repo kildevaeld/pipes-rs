@@ -78,9 +78,9 @@ where
     type Item = W::Output;
     type Stream<'a> = PipelineStream<'a, S, W, C>;
 
-    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         PipelineStream {
-            stream: self.source.start(ctx.clone()),
+            stream: self.source.create_stream(ctx.clone()),
             work: self.work,
             future: None,
             ctx,
