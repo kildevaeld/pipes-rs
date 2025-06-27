@@ -4,8 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["serde"]
-serde = ["toback", "dep:serde"]
 
 [dependencies]
 pipes-package = { path = "../pipes-package" }
@@ -26,13 +24,7 @@ bytes = { version = "1", default-features = false }
 mime = { version = "0.3" }
 
 
-# Encoding
-toback = { git = "https://github.com/kildevaeld/toback-rs", features = [
-  "send",
-  "json",
-], optional = true }
-serde = { version = "1", optional = true }
-
 [dev-dependencies]
 tokio = { version = "1", features = ["fs", "io-util", "rt", "macros"] }
 serde = { version = "1", features = ["derive"] }
+pipes-util = { path = "../pipes-util", features = ["serde"] }

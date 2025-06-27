@@ -16,3 +16,5 @@ pub mod prelude {
 
 pub use bytes::{self, Bytes};
 pub use mime::{self, Mime};
+
+pub use async_trait::async_trait;

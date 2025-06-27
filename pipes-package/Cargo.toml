@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 pipes = { path = "../pipes" }
-pin-project-lite = { version = "0.2" }
-futures = { version = "0.3" }
+pin-project-lite = { workspace = true }
+futures = { workspace = true }
 either = { version = "1" }
 mime = { workspace = true }
 relative-path = { workspace = true, features = ["serde", "alloc"] }

@@ -32,7 +32,7 @@ impl WithPath for RelativePathBuf {
     }
 }
 
-impl WithPath for &RelativePathBuf {
+impl<'a> WithPath for &'a RelativePathBuf {
     fn path(&self) -> &RelativePath {
         self
     }

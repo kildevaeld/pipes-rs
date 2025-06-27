@@ -1,6 +1,7 @@
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{TryStreamExt, stream::BoxStream};
 use pipes::Error;
+use pipes_package::{Content, async_trait};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
@@ -18,10 +19,10 @@ impl Default for Body {
 }
 
 impl Body {
-    pub async fn bytes(mut self) -> Result<Bytes, Error> {
+    pub async fn bytes(&mut self) -> Result<Bytes, Error> {
         self.load().await?;
         match self {
-            Self::Bytes(bs) => Ok(bs),
+            Self::Bytes(bs) => Ok(bs.clone()),
             _ => Ok(Bytes::new()),
         }
     }
@@ -84,6 +85,13 @@ impl Body {
         }
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl Content for Body {
+    async fn bytes(&mut self) -> Result<Bytes, Error> {
+        Body::bytes(self).await
     }
 }
 
