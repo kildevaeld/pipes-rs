@@ -17,7 +17,7 @@ where
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, ctx: C, package: V) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: C, package: V) -> Self::Future<'a> {
         let ret = T::from_str(package.as_ref()).map_err(pipes::Error::new);
         core::future::ready(ret)
     }

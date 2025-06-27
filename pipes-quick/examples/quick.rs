@@ -1,5 +1,5 @@
 use klaver::pool::VmPoolOptions;
-use pipes::{Pipeline, Unit, prelude::*, work_fn};
+use pipes::{Pipeline, Unit, prelude::*};
 use pipes_quick::QuickWork;
 use relative_path::RelativePathBuf;
 

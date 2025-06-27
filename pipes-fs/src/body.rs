@@ -1,22 +1,8 @@
-use core::{
-    any::{Any, TypeId},
-    task::Poll,
-};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-};
-
 use bytes::{BufMut, Bytes, BytesMut};
-use either::Either;
-use futures::{Future, TryStreamExt, future::BoxFuture, stream::BoxStream};
-use pin_project_lite::pin_project;
-use relative_path::{RelativePath, RelativePathBuf};
+use futures::{TryStreamExt, stream::BoxStream};
+use pipes::Error;
+use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
-
-use pipes::{AsyncClone, Error};
-
-pub use mime::{self, Mime};
 
 pub enum Body {
     Bytes(Bytes),

@@ -1,11 +1,11 @@
 use core::{pin::Pin, task::Poll};
 
 use bytes::Bytes;
-use futures::{Future, FutureExt, Stream, future::BoxFuture, stream::StreamExt};
+use futures::{Future, FutureExt, Stream, future::BoxFuture};
 use http_body::Body as _;
 use mime::Mime;
 use pipes::{Error, Work};
-use pipes_package::{Content, IntoPackage, Package, StreamContent};
+use pipes_package::{IntoPackage, Package, StreamContent};
 use reqwest::{Client, Method, Request, Response, Url};
 
 pub fn get(url: &str) -> Result<Request, Error> {

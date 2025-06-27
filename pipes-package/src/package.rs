@@ -13,8 +13,6 @@ use pipes::{AsyncClone, Error};
 
 pub use mime::{self, Mime};
 
-use crate::Content;
-
 trait ToAny {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;

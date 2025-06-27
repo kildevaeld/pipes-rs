@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, string::String};
 
-pub trait Matcher<T>: Send + Sync {
+pub trait Matcher<T: ?Sized>: Send + Sync {
     fn is_match(&self, path: &T) -> bool;
 }
 

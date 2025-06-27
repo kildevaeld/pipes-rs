@@ -5,7 +5,6 @@ resolver = "2"
 members = [
   "pipes",
   "pipes-img",
-  # "pipes-utils",
   "infinitask",
   # "pipes-infinity",
   "kravl-core",
@@ -13,7 +12,8 @@ members = [
   "pipes-http",
   "pipes-util",
   "pipes-quick",
-  "pipes-package", "pipes-example",
+  "pipes-package",
+  "pipes-example",
 ]
 
 

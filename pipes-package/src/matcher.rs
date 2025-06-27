@@ -1,6 +1,6 @@
 use mime::Mime;
 use pipes::Matcher;
-use relative_path::RelativePath;
+use relative_path::{RelativePath, RelativePathBuf};
 
 use crate::Package;
 
@@ -11,6 +11,30 @@ pub trait WithPath {
 impl<T> WithPath for Package<T> {
     fn path(&self) -> &RelativePath {
         self.path()
+    }
+}
+
+impl WithPath for &RelativePath {
+    fn path(&self) -> &RelativePath {
+        self
+    }
+}
+
+impl WithPath for RelativePath {
+    fn path(&self) -> &RelativePath {
+        self
+    }
+}
+
+impl WithPath for RelativePathBuf {
+    fn path(&self) -> &RelativePath {
+        self
+    }
+}
+
+impl WithPath for &RelativePathBuf {
+    fn path(&self) -> &RelativePath {
+        self
     }
 }
 

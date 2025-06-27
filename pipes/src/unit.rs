@@ -1,9 +1,9 @@
-use core::{mem::transmute, task::Poll};
+use core::task::Poll;
 
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{and::And, Source, Work};
+use crate::{and::And, Source};
 
 pub trait Unit<C> {
     type Future<'a>: Future<Output = ()>

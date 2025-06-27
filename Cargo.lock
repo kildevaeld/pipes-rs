@@ -1817,7 +1817,6 @@ dependencies = [
  "pipes",
  "pipes-package",
  "relative-path 2.0.1",
- "reqwest",
  "tokio",
  "webp",
 ]
