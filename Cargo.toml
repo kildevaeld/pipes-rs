@@ -7,7 +7,7 @@ members = [
   "pipes-img",
   "infinitask",
   # "pipes-infinity",
-  "kravl-core",
+  # "kravl-core",
   "pipes-fs",
   "pipes-http",
   "pipes-util",
