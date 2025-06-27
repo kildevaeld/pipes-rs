@@ -4,22 +4,20 @@ use either::Either;
 use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
 
-use crate::{
-    and::And, cloned::AsyncCloned, dest::Dest, error::Error, then::Then, Pipeline, SourceUnit, Work,
-};
+use crate::{and::And, cloned::AsyncCloned, error::Error, then::Then, Pipeline, SourceUnit, Work};
 
 pub trait Source<C> {
     type Item;
     type Stream<'a>: Stream<Item = Result<Self::Item, Error>>
     where
         Self: 'a;
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a>;
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a>;
 }
 
 impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
     type Item = T;
     type Stream<'a> = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>;
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::iter(self)
     }
 }
@@ -29,7 +27,7 @@ impl<T: 'static, C> Source<C> for Result<T, Error> {
 
     type Stream<'a> = futures::stream::Once<futures::future::Ready<Result<T, Error>>>;
 
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
         futures::stream::once(futures::future::ready(self))
     }
 }
@@ -41,14 +39,6 @@ pub trait SourceExt<C>: Source<C> {
         S: Source<C>,
     {
         And::new(self, source)
-    }
-
-    fn dest<T>(self, dest: T) -> SourceUnit<Self, T>
-    where
-        Self: Sized,
-        T: Dest<Self::Item>,
-    {
-        SourceUnit::new(self, dest)
     }
 
     fn filter<W>(self, work: W) -> Filter<Self, W>
@@ -89,6 +79,13 @@ pub trait SourceExt<C>: Source<C> {
     {
         Then::new(self, work)
     }
+
+    fn unit(self) -> SourceUnit<Self>
+    where
+        Self: Sized,
+    {
+        SourceUnit::new(self)
+    }
 }
 
 impl<T, C> SourceExt<C> for T where T: Source<C> {}
@@ -106,13 +103,13 @@ where
         T1: 'a,
         T2: 'a;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         match self {
             Self::Left(left) => EitherSourceStream::T1 {
-                stream: left.call(ctx),
+                stream: left.create_stream(ctx),
             },
             Self::Right(left) => EitherSourceStream::T2 {
-                stream: left.call(ctx),
+                stream: left.create_stream(ctx),
             },
         }
     }
@@ -160,6 +157,7 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Filter<T, W> {
     source: T,
     work: W,
@@ -185,9 +183,9 @@ where
         T: 'a,
         W: 'a;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         FilterStream {
-            stream: self.source.call(ctx.clone()),
+            stream: self.source.create_stream(ctx.clone()),
             work: self.work,
             future: None,
             ctx,
@@ -240,6 +238,7 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub struct Flatten<S> {
     source: S,
 }
@@ -256,7 +255,7 @@ where
     where
         S: 'a;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        self.source.call(ctx).try_flatten()
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+        self.source.create_stream(ctx).try_flatten()
     }
 }

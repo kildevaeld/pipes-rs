@@ -5,10 +5,21 @@ resolver = "2"
 members = [
   "pipes",
   "pipes-img",
-  # "pipes-utils",
   "infinitask",
   # "pipes-infinity",
   "kravl-core",
   "pipes-fs",
-  "pipes-http", "pipes-util", "pipes-quick", "pipes-package",
+  "pipes-http",
+  "pipes-util",
+  "pipes-quick",
+  "pipes-package",
+  "pipes-example",
 ]
+
+
+[workspace.dependencies]
+relative-path = { version = "2", default-features = false }
+mime = { version = "0.3", default-features = false }
+bytes = { version = "1", default-features = false }
+futures = { version = "0.3", default-features = false, features = ["alloc"] }
+pin-project-lite = { version = "0.2" }

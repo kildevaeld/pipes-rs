@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use futures::future::BoxFuture;
 use pipes::Work;
+use pipes_package::Package;
 use relative_path::RelativePathBuf;
 
-use crate::{Body, Package};
+use crate::Body;
 
 pub struct FsWork {
     root: PathBuf,

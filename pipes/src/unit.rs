@@ -1,9 +1,9 @@
-use core::{mem::transmute, task::Poll};
+use core::task::Poll;
 
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{and::And, dest::Dest, Source};
+use crate::{and::And, Source};
 
 pub trait Unit<C> {
     type Future<'a>: Future<Output = ()>
@@ -24,48 +24,42 @@ pub trait UnitExt<C>: Unit<C> {
 
 impl<T, C> UnitExt<C> for T where T: Unit<C> {}
 
-pub struct SourceUnit<S, T> {
+#[derive(Debug, Clone, Copy)]
+pub struct SourceUnit<S> {
     source: S,
-    dest: T,
 }
 
-impl<S, T> SourceUnit<S, T> {
-    pub fn new(source: S, dest: T) -> SourceUnit<S, T> {
-        SourceUnit { source, dest }
+impl<S> SourceUnit<S> {
+    pub fn new(source: S) -> SourceUnit<S> {
+        SourceUnit { source }
     }
 }
 
-impl<S, T, C> Unit<C> for SourceUnit<S, T>
+impl<S, C> Unit<C> for SourceUnit<S>
 where
-    T: Dest<S::Item> + 'static,
     S: Source<C> + 'static,
     for<'a> S::Item: 'a,
 {
-    type Future<'a> = SourceUnitFure<'a, S, T, C>;
+    type Future<'a> = SourceUnitFure<'a, S, C>;
 
     fn run<'a>(self, ctx: C) -> Self::Future<'a> {
         SourceUnitFure {
-            stream: self.source.call(ctx),
-            dest: self.dest,
-            future: None,
+            stream: self.source.create_stream(ctx),
         }
     }
 }
 
 pin_project! {
     #[project(!Unpin)]
-    pub struct SourceUnitFure<'a, S: 'a, T:'a, C> where T: Dest<S::Item>, S: Source<C>, S::Item: 'a {
+    pub struct SourceUnitFure<'a, S: 'a, C> where  S: Source<C>, S::Item: 'a {
         #[pin]
         stream: S::Stream<'a>,
-        dest: T,
-        #[pin]
-        future: Option<T::Future<'a>>
+
     }
 }
 
-impl<'a, S, T, C> Future for SourceUnitFure<'a, S, T, C>
+impl<'a, S, C> Future for SourceUnitFure<'a, S, C>
 where
-    T: Dest<S::Item> + 'a,
     S: Source<C> + 'a,
 {
     type Output = ();
@@ -77,17 +71,9 @@ where
         let mut this = self.as_mut().project();
 
         Poll::Ready(loop {
-            if let Some(fut) = this.future.as_mut().as_pin_mut() {
-                // TODO: What to do about errors
-                let _item = ready!(fut.poll(cx));
-                this.future.set(None);
-            } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)) {
-                if let Ok(ok) = item {
-                    this.future
-                        .set(Some(unsafe { transmute(this.dest.call(ok)) }));
-                }
-            } else {
-                break ();
+            match ready!(this.stream.as_mut().try_poll_next(cx)) {
+                None => break (),
+                _ => continue,
             }
         })
     }

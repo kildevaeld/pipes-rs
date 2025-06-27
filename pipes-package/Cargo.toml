@@ -5,10 +5,12 @@ edition = "2024"
 
 [dependencies]
 pipes = { path = "../pipes" }
-pin-project-lite = { version = "0.2" }
-futures = { version = "0.3" }
+pin-project-lite = { workspace = true }
+futures = { workspace = true }
 either = { version = "1" }
-bytes = { version = "1", default-features = false }
-mime = { version = "0.3" }
-relative-path = { version = "2", features = ["serde"] }
+mime = { workspace = true }
+relative-path = { workspace = true, features = ["serde", "alloc"] }
 fast-glob = { version = "0.4" }
+bytes = { workspace = true }
+
+async-trait = { version = "0.1" }

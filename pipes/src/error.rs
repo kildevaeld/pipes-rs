@@ -1,11 +1,9 @@
 use alloc::boxed::Box;
 use core::fmt;
 
-#[cfg(feature = "std")]
-pub type BoxError = Box<dyn std::error::Error + Send + Sync>;
+pub type BoxError = Box<dyn core::error::Error + Send + Sync>;
 
-#[cfg(not(feature = "std"))]
-pub type BoxError = Box<dyn fmt::Debug + Send + Sync>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub struct Error {
@@ -26,17 +24,12 @@ impl Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[cfg(feature = "std")]
-        write!(f, "{}", self.inner)?;
-        #[cfg(not(feature = "std"))]
-        write!(f, "{:?}", self.inner)?;
-        Ok(())
+        write!(f, "{}", self.inner)
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&*self.inner)
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
+        self.inner.source()
     }
 }

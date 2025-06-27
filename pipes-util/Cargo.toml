@@ -3,8 +3,20 @@ name = "pipes-util"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = ["serde"]
+serde = ["dep:serde", "toback"]
+
 [dependencies]
 pipes = { path = "../pipes" }
-async-channel = { version = "2" }
-pin-project-lite = { version = "0.2" }
-futures-core = { version = "0.3" }
+pipes-package = { path = "../pipes-package" }
+flume = { version = "0.11", features = ["async"] }
+pin-project-lite = { workspace = true }
+futures = { workspace = true }
+
+# Encoding
+toback = { git = "https://github.com/kildevaeld/toback-rs", features = [
+  "send",
+  "json",
+], optional = true }
+serde = { version = "1", optional = true }

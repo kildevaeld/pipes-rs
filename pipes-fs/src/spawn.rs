@@ -24,11 +24,11 @@ where
     where
         Self: 'a;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn start<'a>(self, ctx: C) -> Self::Stream<'a> {
         let (sx, rx) = mpsc::channel(10);
 
         tokio::spawn(async move {
-            let stream = self.source.call(ctx.clone());
+            let stream = self.source.start(ctx.clone());
             pin_mut!(stream);
             while let Some(item) = stream.next().await {
                 let ret = match item {

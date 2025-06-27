@@ -2,9 +2,9 @@ use std::marker::PhantomData;
 
 use pipes::Work;
 
-use crate::{IntoPackage, IntoPackageWork};
+use crate::{IntoPackage, into_package::IntoPackageWork};
 
-pub trait FsWorkExt<C, T>: Work<C, T> {
+pub trait WorkExt<C, T>: Work<C, T> {
     fn into_package<B>(self) -> IntoPackageWork<Self, C, B>
     where
         Self: Sized,
@@ -17,4 +17,4 @@ pub trait FsWorkExt<C, T>: Work<C, T> {
     }
 }
 
-impl<C, T, W> FsWorkExt<C, T> for W where W: Work<C, T> {}
+impl<C, T, W> WorkExt<C, T> for W where W: Work<C, T> {}

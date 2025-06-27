@@ -3,25 +3,25 @@ use either::Either;
 use futures::{ready, Future};
 use pin_project_lite::pin_project;
 
-use crate::{Error, Work};
+use crate::{matcher::Matcher, Error, Work};
 
 #[derive(Debug, Clone, Copy)]
-pub struct Cond<T, W> {
+pub struct When<T, W> {
     check: T,
     work: W,
 }
 
-impl<T, W, C, R> Work<C, R> for Cond<T, W>
+impl<T, W, C, R> Work<C, R> for When<T, W>
 where
     W: Work<C, R> + 'static,
-    T: Fn(&R) -> bool + 'static,
+    T: Matcher<R> + 'static,
 {
     type Output = Either<R, W::Output>;
 
     type Future<'a> = CondFuture<'a, W, C, R>;
 
     fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
-        if (self.check)(&package) {
+        if self.check.is_match(&package) {
             CondFuture::Work {
                 future: self.work.call(ctx, package),
             }
@@ -68,6 +68,6 @@ where
     }
 }
 
-pub fn cond<T, W>(check: T, work: W) -> Cond<T, W> {
-    Cond { check, work }
+pub fn when<T, W>(check: T, work: W) -> When<T, W> {
+    When { check, work }
 }

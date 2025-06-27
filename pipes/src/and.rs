@@ -39,9 +39,16 @@ where
     C: Clone,
 {
     type Item = T1::Item;
-    type Stream<'a> = futures::stream::Select<T1::Stream<'a>, T2::Stream<'a>> where T1: 'a, T2: 'a;
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
-        futures::stream::select(self.left.call(ctx.clone()), self.right.call(ctx))
+    type Stream<'a>
+        = futures::stream::Select<T1::Stream<'a>, T2::Stream<'a>>
+    where
+        T1: 'a,
+        T2: 'a;
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+        futures::stream::select(
+            self.left.create_stream(ctx.clone()),
+            self.right.create_stream(ctx),
+        )
     }
 }
 
@@ -51,7 +58,11 @@ where
     T2: Unit<C>,
     C: Clone,
 {
-    type Future<'a> = AndUnitFuture<T1::Future<'a>, T2::Future<'a>> where T1: 'a, T2: 'a;
+    type Future<'a>
+        = AndUnitFuture<T1::Future<'a>, T2::Future<'a>>
+    where
+        T1: 'a,
+        T2: 'a;
 
     fn run<'a>(self, ctx: C) -> Self::Future<'a> {
         AndUnitFuture {

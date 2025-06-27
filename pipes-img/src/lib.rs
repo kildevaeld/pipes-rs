@@ -6,13 +6,14 @@ use std::{
     task::Poll,
 };
 
+use bytes::Bytes;
 use futures::{future::BoxFuture, ready};
-use image::DynamicImage;
+use image::{ColorType, DynamicImage};
 use pin_project_lite::pin_project;
 use pipes::{Error, Work};
-use relative_path::RelativePathBuf;
+use pipes_package::{Content, Package};
 
-use pipes_fs::{Body, Package};
+pub type ImagePackage = Package<DynamicImage>;
 
 #[derive(Debug, Clone)]
 pub enum Operation {
@@ -33,17 +34,17 @@ impl<C> Clone for ImageOp<C> {
     }
 }
 
-impl<C> Work<C, Image> for ImageOp<C>
+impl<C> Work<C, ImagePackage> for ImageOp<C>
 where
     C: 'static,
 {
-    type Output = Image;
-    type Future<'a> = SpawnBlockFuture<Image>;
-    fn call<'a>(&'a self, _ctx: C, image: Image) -> Self::Future<'a> {
+    type Output = ImagePackage;
+    type Future<'a> = SpawnBlockFuture<ImagePackage>;
+    fn call<'a>(&'a self, _ctx: C, mut image: ImagePackage) -> Self::Future<'a> {
         let ops = self.0.clone();
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
-                let mut img = image.image;
+                let mut img = image.replace_content(DynamicImage::new(1, 1, ColorType::Rgb8));
 
                 for op in &*ops {
                     img = match op {
@@ -54,10 +55,7 @@ where
                     };
                 }
 
-                Result::<_, Error>::Ok(Image {
-                    path: image.path,
-                    image: img,
-                })
+                Result::<_, Error>::Ok(image.map_content(img))
             }),
         }
     }
@@ -150,22 +148,21 @@ impl<C> Clone for Save<C> {
 
 impl<C> Copy for Save<C> {}
 
-impl<C> Work<C, Image> for Save<C>
+impl<C> Work<C, Package<DynamicImage>> for Save<C>
 where
     C: 'static,
 {
-    type Output = Package<Body>;
-    type Future<'a> = SpawnBlockFuture<Package<Body>>;
-    fn call<'a>(&'a self, _ctx: C, img: Image) -> Self::Future<'a> {
+    type Output = Package<Bytes>;
+    type Future<'a> = SpawnBlockFuture<Package<Bytes>>;
+    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<DynamicImage>) -> Self::Future<'a> {
         let format = self.format;
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
-                let bytes = format.encode(&img.image)?;
-                let path = img.path.with_extension(format.ext());
+                let bytes: Bytes = format.encode(pkg.content())?.into();
 
-                let pkg = Package::new(path, format.mime(), Body::Bytes(bytes.into()));
+                pkg.path_mut().set_extension(format.ext());
 
-                Result::<_, Error>::Ok(pkg)
+                Result::<_, Error>::Ok(pkg.map_content(bytes))
             }),
         }
     }
@@ -194,20 +191,6 @@ impl<T> Future for SpawnBlockFuture<T> {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Image {
-    pub path: RelativePathBuf,
-    pub image: image::DynamicImage,
-}
-
-impl core::ops::Deref for Image {
-    type Target = image::DynamicImage;
-
-    fn deref(&self) -> &Self::Target {
-        &self.image
-    }
-}
-
 #[derive(Debug)]
 pub struct ImageWork<C>(PhantomData<C>);
 
@@ -225,17 +208,22 @@ impl<C> Default for ImageWork<C> {
     }
 }
 
-impl<C> Work<C, Package<Body>> for ImageWork<C>
+impl<C, B> Work<C, Package<B>> for ImageWork<C>
 where
     for<'a> C: 'a,
+    B: Content + Send,
+    for<'a> B: 'a,
 {
-    type Output = Image;
+    type Output = Package<DynamicImage>;
 
-    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
+    type Future<'a>
+        = BoxFuture<'a, Result<Self::Output, Error>>
+    where
+        Self: 'a;
 
-    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<Body>) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<B>) -> Self::Future<'a> {
         Box::pin(async move {
-            let bytes = pkg.replace_content(Body::Empty).bytes().await?;
+            let bytes = pkg.content_mut().bytes().await?;
 
             let img = image::io::Reader::new(Cursor::new(bytes))
                 .with_guessed_format()
@@ -243,10 +231,7 @@ where
                 .decode()
                 .map_err(Error::new)?;
 
-            Result::<_, Error>::Ok(Image {
-                path: pkg.path().to_relative_path_buf(),
-                image: img,
-            })
+            Result::<_, Error>::Ok(pkg.map(|_| async move { img }).await)
         })
     }
 }

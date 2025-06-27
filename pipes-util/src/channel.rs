@@ -1,18 +1,24 @@
-use std::task::Poll;
-
-use futures_core::{Stream, ready};
+use flume::r#async::RecvStream;
+use futures::{Stream, ready};
 use pin_project_lite::pin_project;
 use pipes::Source;
+use std::task::Poll;
 
 pub struct Sender<T> {
-    sx: async_channel::Sender<Result<T, pipes::Error>>,
+    sx: flume::Sender<Result<T, pipes::Error>>,
 }
 
 impl<T: Send + 'static> Sender<T> {
+    pub async fn send_async(&self, payload: Result<T, pipes::Error>) -> Result<(), pipes::Error> {
+        self.sx
+            .send_async(payload)
+            .await
+            .map_err(|_| pipes::Error::new("Channel closed"))
+    }
+
     pub async fn send(&self, payload: Result<T, pipes::Error>) -> Result<(), pipes::Error> {
         self.sx
             .send(payload)
-            .await
             .map_err(|_| pipes::Error::new("Channel closed"))
     }
 }
@@ -26,12 +32,12 @@ impl<T> Clone for Sender<T> {
 }
 
 pub struct Receiver<T> {
-    rx: async_channel::Receiver<Result<T, pipes::Error>>,
+    rx: flume::Receiver<Result<T, pipes::Error>>,
 }
 
 impl<T> Receiver<T> {
     pub async fn recv(&self) -> Result<T, pipes::Error> {
-        match self.rx.recv().await.map_err(pipes::Error::new) {
+        match self.rx.recv_async().await.map_err(pipes::Error::new) {
             Ok(ret) => ret,
             Err(err) => Err(err),
         }
@@ -39,12 +45,12 @@ impl<T> Receiver<T> {
 }
 
 pub fn channel<T>(buffer: usize) -> (Sender<T>, Receiver<T>) {
-    let (sx, rx) = async_channel::bounded(buffer);
+    let (sx, rx) = flume::bounded(buffer);
     (Sender { sx }, Receiver { rx })
 }
 
 pub fn unbound_channel<T>() -> (Sender<T>, Receiver<T>) {
-    let (sx, rx) = async_channel::unbounded();
+    let (sx, rx) = flume::unbounded();
     (Sender { sx }, Receiver { rx })
 }
 
@@ -53,15 +59,17 @@ impl<C, T: 'static> Source<C> for Receiver<T> {
 
     type Stream<'a> = ReceiverStream<T>;
 
-    fn call<'a>(self, _ctx: C) -> Self::Stream<'a> {
-        ReceiverStream { rx: self.rx }
+    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
+        ReceiverStream {
+            rx: self.rx.into_stream(),
+        }
     }
 }
 
 pin_project! {
-    pub struct ReceiverStream<T> {
+    pub struct ReceiverStream<T: 'static> {
         #[pin]
-        rx: async_channel::Receiver<Result<T, pipes::Error>>
+        rx: RecvStream<'static,Result<T, pipes::Error>>
     }
 }
 

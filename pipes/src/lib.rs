@@ -7,21 +7,21 @@ extern crate std;
 
 mod and;
 mod cloned;
-mod cond;
-mod dest;
 mod error;
+mod matcher;
 mod pipeline;
 mod source;
 mod split;
 mod then;
 mod unit;
+mod when;
 mod work;
 // mod work_many;
 mod wrap;
 
 pub use self::{
-    cloned::*, cond::*, dest::*, error::Error, pipeline::Pipeline, source::*, then::*, unit::*,
-    work::*,
+    cloned::*, error::Result, error::*, matcher::*, pipeline::Pipeline, source::*, then::*,
+    unit::*, when::*, work::*,
 };
 
 pub mod prelude {

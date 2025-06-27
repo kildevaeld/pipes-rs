@@ -55,7 +55,7 @@ impl<C> Source<C> for KravlSource {
     where
         Self: 'a;
 
-    fn call<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
         let (producer, rx) = pipes_util::channel(5);
 
         for path in self.paths {
@@ -98,7 +98,7 @@ impl<C> Source<C> for KravlSource {
             });
         }
         
-        rx.call(ctx)
+        rx.create_stream(ctx)
     }
 }
 

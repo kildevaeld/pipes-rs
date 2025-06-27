@@ -141,6 +141,41 @@ impl<B> Package<B> {
     pub fn meta_mut(&mut self) -> &mut Meta {
         &mut self.meta
     }
+
+    pub fn map_content<T>(self, content: T) -> Package<T> {
+        Package {
+            name: self.name,
+            mime: self.mime,
+            content,
+            meta: self.meta,
+        }
+    }
+
+    pub async fn map<F, U, C>(self, content: F) -> Package<C>
+    where
+        F: FnOnce(B) -> U,
+        U: Future<Output = C>,
+    {
+        Package {
+            name: self.name,
+            mime: self.mime,
+            content: content(self.content).await,
+            meta: self.meta,
+        }
+    }
+
+    pub async fn try_map<F, U, C, E>(self, content: F) -> Result<Package<C>, E>
+    where
+        F: FnOnce(B) -> U,
+        U: Future<Output = Result<C, E>>,
+    {
+        Ok(Package {
+            name: self.name,
+            mime: self.mime,
+            content: content(self.content).await?,
+            meta: self.meta,
+        })
+    }
 }
 
 impl<B: AsyncClone + Send> AsyncClone for Package<B>

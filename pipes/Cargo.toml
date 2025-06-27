@@ -11,8 +11,8 @@ std = ["futures/std"]
 
 [dependencies]
 async-stream = { version = "0.3" }
-futures = { version = "0.3", default-features = false, features = ["alloc"] }
-pin-project-lite = { version = "0.2" }
+futures = { workspace = true }
+pin-project-lite = { workspace = true }
 either = { version = "1" }
 
 
@@ -23,4 +23,3 @@ tokio = { version = "1", features = ["full"] }
 [[example]]
 name = "pipes"
 path = "examples/pipes.rs"
-required-features = ["http", "fs"]
