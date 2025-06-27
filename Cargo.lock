@@ -837,7 +837,6 @@ version = "0.1.0"
 source = "git+https://github.com/kildevaeld/heather#fc95391d0c705a63485d853f992e4ff521ed3f14"
 dependencies = [
  "futures-core",
- "spin",
 ]
 
 [[package]]

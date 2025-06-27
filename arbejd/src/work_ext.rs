@@ -1,8 +1,5 @@
-#[cfg(feature = "alloc")]
-use crate::{BoxWork, box_work};
-use crate::{Work, pipe::And, then::Then};
-#[cfg(all(feature = "alloc", feature = "send"))]
-use heather::{HSend, HSendSync};
+use crate::{Work, map_err::MapErr, pipe::And, split::Split, then::Then, util::IntoEither};
+
 pub trait WorkExt<C, I>: Work<C, I> {
     fn pipe<T>(self, next: T) -> And<Self, T>
     where
@@ -20,25 +17,24 @@ pub trait WorkExt<C, I>: Work<C, I> {
         Then::new(self, next)
     }
 
-    #[cfg(all(feature = "alloc", not(feature = "send")))]
-    fn boxed<'a>(self) -> BoxWork<'a, C, I, Self::Output, Self::Error>
+    fn split<L, R>(self, left: L, right: R) -> Split<Self, L, R>
     where
-        Self: Sized + 'a,
-        I: 'a,
-        C: 'a,
+        Self: Sized,
+        Self::Output: IntoEither,
+        L: Work<C, <Self::Output as IntoEither>::Left, Error = Self::Error> + Clone,
+        R: Work<C, <Self::Output as IntoEither>::Right, Output = L::Output, Error = Self::Error>
+            + Clone,
+        C: Clone,
     {
-        box_work(self)
+        Split::new(self, left, right)
     }
 
-    #[cfg(all(feature = "alloc", feature = "send"))]
-    fn boxed(self) -> BoxWork<'static, C, I, Self::Output, Self::Error>
+    fn map_err<T, E>(self, map: T) -> MapErr<Self, T, E>
     where
-        Self: HSendSync + Sized + 'static,
-        I: HSend + 'static,
-        C: HSendSync + 'static,
-        for<'a> Self::Future<'a>: HSend,
+        Self: Sized,
+        T: Fn(Self::Error) -> E,
     {
-        box_work(self)
+        MapErr::new(self, map)
     }
 }
 

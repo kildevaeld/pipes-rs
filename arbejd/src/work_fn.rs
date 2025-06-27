@@ -8,6 +8,7 @@ pub fn work_fn<T, C, R, U>(func: T) -> WorkFn<T>
 where
     T: Fn(C, R) -> U,
     U: TryFuture,
+    C: Clone,
 {
     WorkFn(func)
 }

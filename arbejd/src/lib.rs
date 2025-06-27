@@ -5,8 +5,11 @@ extern crate alloc;
 
 #[cfg(feature = "alloc")]
 mod boxed;
+pub mod map_err;
 mod matcher;
+mod middleware;
 pub mod pipe;
+pub mod split;
 pub mod then;
 mod util;
 pub mod when;

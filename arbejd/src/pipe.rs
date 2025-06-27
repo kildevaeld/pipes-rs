@@ -20,7 +20,6 @@ impl<T1, T2, C, R> Work<C, R> for And<T1, T2>
 where
     T1: Work<C, R>,
     T2: Work<C, T1::Output, Error = T1::Error>,
-    C: Clone,
 {
     type Output = T2::Output;
     type Error = T2::Error;

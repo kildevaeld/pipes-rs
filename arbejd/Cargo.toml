@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [features]
-default = ["alloc", "send"]
-send = ["heather/send"]
+default = ["alloc"]
 alloc = ["heather/alloc"]
 
 [dependencies]
-heather = { git = "https://github.com/kildevaeld/heather", features = [] }
+heather = { git = "https://github.com/kildevaeld/heather", default-features = false, features = [
+] }
 futures-core = { version = "0.3", default-features = false }
 pin-project-lite = { version = "0.2" }
 either = { version = "1", default-features = false }
