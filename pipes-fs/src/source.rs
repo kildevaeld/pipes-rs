@@ -4,7 +4,7 @@ use crate::{Body, resolver::FileResolver};
 use futures::{StreamExt, TryStreamExt, pin_mut, stream::BoxStream};
 use pipes::{Matcher, Source};
 use pipes_package::Package;
-use relative_path::{RelativePath, RelativePathBuf};
+use relative_path::RelativePathBuf;
 
 pub struct FsSource {
     root: FileResolver,

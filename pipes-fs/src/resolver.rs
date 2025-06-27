@@ -5,7 +5,7 @@ use futures::{Stream, TryStreamExt};
 
 pub use async_walkdir::Error as WalkDirError;
 use pipes::Matcher;
-use relative_path::{RelativePath, RelativePathBuf};
+use relative_path::RelativePathBuf;
 
 pub struct FileResolver {
     patterns: Vec<Box<dyn Matcher<RelativePathBuf>>>,
@@ -66,21 +66,4 @@ impl FileResolver {
 
         }
     }
-
-    // pub fn find_relative(self) -> impl Stream<Item = Result<RelativePathBuf, WalkDirError>> {
-    //     let root = self.root.clone();
-    //     self.find().try_filter_map(move |m| {
-    //         let root = root.clone();
-    //         async move {
-    //             let path = match pathdiff::diff_paths(m, &root) {
-    //                 Some(path) => path,
-    //                 None => {
-    //                     return Ok(None);
-    //                 }
-    //             };
-
-    //             Ok(RelativePathBuf::from_path(path).ok())
-    //         }
-    //     })
-    // }
 }
