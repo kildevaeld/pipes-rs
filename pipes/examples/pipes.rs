@@ -1,5 +1,5 @@
-use futures::{StreamExt, TryStreamExt};
-use pipes::{pipe, work_fn, Error, Source, SourceExt, Unit};
+use futures::TryStreamExt;
+use pipes::{pipe, work_fn, Error, Source, SourceExt};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
