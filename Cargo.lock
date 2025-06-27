@@ -45,6 +45,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "arbejd"
+version = "0.1.0"
+dependencies = [
+ "heather",
+]
+
+[[package]]
 name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -818,6 +825,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
  "ahash",
+]
+
+[[package]]
+name = "heather"
+version = "0.1.0"
+source = "git+https://github.com/kildevaeld/heather#fc95391d0c705a63485d853f992e4ff521ed3f14"
+dependencies = [
+ "futures-core",
 ]
 
 [[package]]
