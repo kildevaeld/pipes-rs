@@ -3,7 +3,21 @@ name = "arbejd"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+# default = ["send", "alloc"]
+send = ["heather/send"]
+alloc = ["heather/alloc"]
+
 [dependencies]
-heather = { git = "https://github.com/kildevaeld/heather", features = [
-  "alloc",
-] }
+heather = { git = "https://github.com/kildevaeld/heather", features = [] }
+futures-core = { version = "0.3" }
+pin-project-lite = { version = "*" }
+
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "arbjed"
+path = "examples/arbjed.rs"
+required-features = ["alloc", "send"]
