@@ -1,26 +1,26 @@
+use crate::{Pipeline, SourceUnit};
+use bycat::{pipe::And, then::Then, IntoResult, ResultIter, Work};
 use core::{mem::transmute, task::Poll};
-
 use either::Either;
 use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
 
-use crate::{cloned::AsyncCloned, error::Error, Pipeline, SourceUnit};
-
-use arbejd::{pipe::And, then::Then, Work};
-
 pub trait Source<C> {
     type Item;
-    type Stream<'a>: Stream<Item = Result<Self::Item, Error>>
+    type Error;
+    type Stream<'a>: Stream<Item = Result<Self::Item, Self::Error>>
     where
         Self: 'a,
         C: 'a;
     fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a>;
 }
 
-impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
+#[cfg(feature = "alloc")]
+impl<T: 'static, E: 'static, C> Source<C> for alloc::vec::Vec<Result<T, E>> {
     type Item = T;
+    type Error = E;
     type Stream<'a>
-        = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>
+        = futures::stream::Iter<alloc::vec::IntoIter<Result<T, E>>>
     where
         Self: 'a,
         C: 'a;
@@ -29,11 +29,35 @@ impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
     }
 }
 
-impl<T: 'static, C> Source<C> for Result<T, Error> {
-    type Item = T;
+pub fn iter<T>(iter: T) -> Iter<T> {
+    Iter(iter)
+}
+pub struct Iter<T>(T);
+
+impl<T, C> Source<C> for Iter<T>
+where
+    T: IntoIterator + 'static,
+    T::Item: IntoResult,
+{
+    type Error = <T::Item as IntoResult>::Error;
+    type Item = <T::Item as IntoResult>::Output;
 
     type Stream<'a>
-        = futures::stream::Once<futures::future::Ready<Result<T, Error>>>
+        = futures::stream::Iter<ResultIter<T::IntoIter>>
+    where
+        C: 'a;
+
+    fn create_stream<'a>(self, _ctx: &'a C) -> Self::Stream<'a> {
+        futures::stream::iter(ResultIter(self.0.into_iter()))
+    }
+}
+
+impl<T: 'static, E: 'static, C> Source<C> for Result<T, E> {
+    type Item = T;
+    type Error = E;
+
+    type Stream<'a>
+        = futures::stream::Once<futures::future::Ready<Result<T, E>>>
     where
         Self: 'a,
         C: 'a;
@@ -71,22 +95,22 @@ pub trait SourceExt<C>: Source<C> {
     fn flatten(self) -> Flatten<Self>
     where
         Self: Sized,
-        Self::Item: TryStream<Error = Error>,
+        Self::Item: TryStream<Error = Self::Error>,
     {
         Flatten { source: self }
     }
 
-    fn cloned<T1, T2>(self, work1: T1, work2: T2) -> AsyncCloned<Self, T1, T2>
-    where
-        Self: Sized,
-    {
-        AsyncCloned::new(self, work1, work2)
-    }
+    // fn cloned<T1, T2>(self, work1: T1, work2: T2) -> AsyncCloned<Self, T1, T2>
+    // where
+    //     Self: Sized,
+    // {
+    //     AsyncCloned::new(self, work1, work2)
+    // }
 
     fn then<W>(self, work: W) -> Then<Self, W>
     where
         Self: Sized,
-        W: Work<C, Result<Self::Item, Error>>,
+        W: Work<C, Result<Self::Item, Self::Error>>,
     {
         Then::new(self, work)
     }
@@ -107,6 +131,8 @@ where
     T2: Source<C>,
 {
     type Item = Either<T1::Item, T2::Item>;
+
+    type Error = Either<T1::Error, T2::Error>;
 
     type Stream<'a>
         = EitherSourceStream<'a, T1, T2, C>
@@ -146,7 +172,7 @@ where
     T1: Source<C>,
     T2: Source<C>,
 {
-    type Item = Result<Either<T1::Item, T2::Item>, Error>;
+    type Item = Result<Either<T1::Item, T2::Item>, Either<T1::Error, T2::Error>>;
 
     fn poll_next(
         self: core::pin::Pin<&mut Self>,
@@ -157,12 +183,12 @@ where
         match this {
             EitherStreamProj::T1 { stream } => match ready!(stream.try_poll_next(cx)) {
                 Some(Ok(ret)) => Poll::Ready(Some(Ok(Either::Left(ret)))),
-                Some(Err(err)) => Poll::Ready(Some(Err(err))),
+                Some(Err(err)) => Poll::Ready(Some(Err(Either::Left(err)))),
                 None => Poll::Ready(None),
             },
             EitherStreamProj::T2 { stream } => match ready!(stream.try_poll_next(cx)) {
                 Some(Ok(ret)) => Poll::Ready(Some(Ok(Either::Right(ret)))),
-                Some(Err(err)) => Poll::Ready(Some(Err(err))),
+                Some(Err(err)) => Poll::Ready(Some(Err(Either::Right(err)))),
                 None => Poll::Ready(None),
             },
         }
@@ -184,10 +210,11 @@ impl<T, W> Filter<T, W> {
 impl<T, W: 'static, C> Source<C> for Filter<T, W>
 where
     T: Source<C>,
-    W: Work<C, T::Item, Output = Option<T::Item>> + Clone,
-    C: Clone,
+    W: Work<C, T::Item, Output = Option<T::Item>, Error = T::Error>,
 {
     type Item = T::Item;
+
+    type Error = T::Error;
 
     type Stream<'a>
         = FilterStream<'a, T, W, C>
@@ -198,7 +225,7 @@ where
 
     fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         FilterStream {
-            stream: self.source.create_stream(ctx.clone()),
+            stream: self.source.create_stream(ctx),
             work: self.work,
             future: None,
             ctx,
@@ -214,17 +241,16 @@ pin_project! {
         work: W,
         #[pin]
         future: Option<W::Future<'a>>,
-        ctx: C
+        ctx: &'a C
     }
 }
 
 impl<'a, T, W, C> Stream for FilterStream<'a, T, W, C>
 where
-    W: Work<C, T::Item, Output = Option<T::Item>> + Clone,
+    W: Work<C, T::Item, Output = Option<T::Item>, Error = T::Error>,
     T: Source<C>,
-    C: Clone,
 {
-    type Item = Result<T::Item, Error>;
+    type Item = Result<T::Item, T::Error>;
     fn poll_next(
         self: core::pin::Pin<&mut Self>,
         cx: &mut core::task::Context<'_>,
@@ -241,9 +267,8 @@ where
                     _ => {}
                 }
             } else if let Some(item) = ready!(this.stream.as_mut().try_poll_next(cx)?) {
-                this.future.set(Some(unsafe {
-                    transmute(this.work.call(this.ctx.clone(), item))
-                }));
+                this.future
+                    .set(Some(unsafe { transmute(this.work.call(this.ctx, item)) }));
             } else {
                 break None;
             }
@@ -259,9 +284,11 @@ pub struct Flatten<S> {
 impl<S, C> Source<C> for Flatten<S>
 where
     S: Source<C>,
-    S::Item: TryStream<Error = Error>,
+    S::Item: TryStream<Error = S::Error>,
 {
     type Item = <S::Item as TryStream>::Ok;
+
+    type Error = <S::Item as TryStream>::Error;
 
     type Stream<'a>
         = TryFlatten<S::Stream<'a>>
@@ -271,5 +298,61 @@ where
 
     fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         self.source.create_stream(ctx).try_flatten()
+    }
+}
+
+pub fn stream<T>(stream: T) -> StreamSource<T>
+where
+    T: Stream + 'static,
+    T::Item: IntoResult,
+{
+    StreamSource(stream)
+}
+
+pub struct StreamSource<T>(T);
+
+impl<T, C> Source<C> for StreamSource<T>
+where
+    T: Stream + 'static,
+    T::Item: IntoResult,
+{
+    type Item = <T::Item as IntoResult>::Output;
+
+    type Error = <T::Item as IntoResult>::Error;
+
+    type Stream<'a>
+        = StreamSourceStream<T>
+    where
+        Self: 'a,
+        C: 'a;
+
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
+        StreamSourceStream { stream: self.0 }
+    }
+}
+
+pin_project! {
+    pub struct StreamSourceStream<T>{
+        #[pin]
+        stream: T
+    }
+}
+
+impl<T> Stream for StreamSourceStream<T>
+where
+    T: Stream,
+    T::Item: IntoResult,
+{
+    type Item = Result<<T::Item as IntoResult>::Output, <T::Item as IntoResult>::Error>;
+
+    fn poll_next(
+        self: core::pin::Pin<&mut Self>,
+        cx: &mut core::task::Context<'_>,
+    ) -> Poll<Option<Self::Item>> {
+        let this = self.project();
+        match ready!(this.stream.poll_next(cx)) {
+            Some(item) => Poll::Ready(Some(item.into_result())),
+            None => Poll::Ready(None),
+        }
     }
 }

@@ -8,9 +8,10 @@ edition = "2021"
 [features]
 default = []
 std = ["futures/std"]
+alloc = []
 
 [dependencies]
-arbejd = { path = "../arbejd", default-features = false }
+bycat = { path = "../bycat", default-features = false }
 
 
 async-stream = { version = "0.3" }

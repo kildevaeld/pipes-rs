@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use arbejd::{Work, box_work, prelude::*, when, work_fn};
+use bycat::{Work, box_work, prelude::*, when, work_fn};
 
 #[tokio::main]
 async fn main() {

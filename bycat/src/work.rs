@@ -1,4 +1,4 @@
-use core::task::Poll;
+use core::{marker::PhantomData, task::Poll};
 
 use either::Either;
 use futures_core::{TryFuture, ready};
@@ -83,12 +83,26 @@ where
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct NoopWork;
+#[derive(Debug)]
+pub struct NoopWork<E>(PhantomData<fn() -> E>);
 
-impl<C, R: 'static> Work<C, R> for NoopWork {
+impl<E> Default for NoopWork<E> {
+    fn default() -> Self {
+        NoopWork(PhantomData)
+    }
+}
+
+impl<E> Clone for NoopWork<E> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<E> Copy for NoopWork<E> {}
+
+impl<C, R, E: 'static> Work<C, R> for NoopWork<E> {
     type Output = R;
-    type Error = core::convert::Infallible;
+    type Error = E;
     type Future<'a>
         = core::future::Ready<Result<R, Self::Error>>
     where

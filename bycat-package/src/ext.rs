@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
-use pipes::Work;
+use bycat::Work;
 
 use crate::{IntoPackage, into_package::IntoPackageWork};
 

@@ -1,16 +1,16 @@
 [package]
-name = "pipes-package"
+name = "bycat-package"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pipes = { path = "../pipes" }
+bycat = { path = "../bycat" }
 pin-project-lite = { workspace = true }
 futures = { workspace = true }
-either = { version = "1" }
+either = { workspace = true }
 mime = { workspace = true }
-relative-path = { workspace = true, features = ["serde", "alloc"] }
-fast-glob = { version = "0.4" }
+relative-path = { workspace = true, features = ["alloc"] }
+fast-glob = { version = "0.4", default-features = false }
 bytes = { workspace = true }
 
 async-trait = { version = "0.1" }

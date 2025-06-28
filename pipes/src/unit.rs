@@ -1,8 +1,8 @@
 use core::task::Poll;
 
-use arbejd::pipe::And;
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
+use bycat::pipe::And;
 
 use crate::Source;
 

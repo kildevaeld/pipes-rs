@@ -1,15 +1,13 @@
 use core::{
     any::{Any, TypeId},
+    convert::Infallible,
     task::Poll,
 };
-use std::collections::HashMap;
 
+use alloc::{boxed::Box, collections::btree_map::BTreeMap};
 use either::Either;
-use futures::{Future, future::BoxFuture};
 use pin_project_lite::pin_project;
 use relative_path::{RelativePath, RelativePathBuf};
-
-use pipes::{AsyncClone, Error};
 
 pub use mime::{self, Mime};
 
@@ -44,7 +42,7 @@ where
 
 #[derive(Default)]
 pub struct Meta {
-    values: HashMap<TypeId, Box<dyn ToAny + Send>>,
+    values: BTreeMap<TypeId, Box<dyn ToAny + Send>>,
 }
 
 impl Meta {
@@ -72,7 +70,7 @@ impl Clone for Meta {
             .values
             .iter()
             .map(|(k, v)| (k.clone(), v.clone_box()))
-            .collect::<HashMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
 
         Meta { values }
     }
@@ -178,47 +176,49 @@ impl<B> Package<B> {
     }
 }
 
-impl<B: AsyncClone + Send> AsyncClone for Package<B>
-where
-    for<'a> B::Future<'a>: Send,
-{
-    type Future<'a>
-        = BoxFuture<'a, Result<Package<B>, pipes::Error>>
-    where
-        Self: 'a;
+// impl<B: AsyncClone + Send> AsyncClone for Package<B>
+// where
+//     for<'a> B::Future<'a>: Send,
+// {
+//     type Future<'a>
+//         = BoxFuture<'a, Result<Package<B>, pipes::Error>>
+//     where
+//         Self: 'a;
 
-    fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
-        Box::pin(async move {
-            Ok(Package {
-                name: self.name.clone(),
-                mime: self.mime.clone(),
-                content: self.content.async_clone().await?,
-                meta: self.meta.clone(),
-            })
-        })
-    }
-}
+//     fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
+//         Box::pin(async move {
+//             Ok(Package {
+//                 name: self.name.clone(),
+//                 mime: self.mime.clone(),
+//                 content: self.content.async_clone().await?,
+//                 meta: self.meta.clone(),
+//             })
+//         })
+//     }
+// }
 
 pub trait IntoPackage<B> {
-    type Future: Future<Output = Result<Package<B>, Error>>;
-
+    type Future: Future<Output = Result<Package<B>, Self::Error>>;
+    type Error;
     fn into_package(self) -> Self::Future;
 }
 
 impl<B> IntoPackage<B> for Package<B> {
-    type Future = futures::future::Ready<Result<Package<B>, Error>>;
+    type Future = core::future::Ready<Result<Package<B>, Self::Error>>;
+    type Error = Infallible;
+
     fn into_package(self) -> Self::Future {
-        futures::future::ready(Ok(self))
+        core::future::ready(Ok(self))
     }
 }
 
 impl<T1, T2, B> IntoPackage<B> for Either<T1, T2>
 where
     T1: IntoPackage<B>,
-    T2: IntoPackage<B>,
+    T2: IntoPackage<B, Error = T1::Error>,
 {
     type Future = EitherIntoPackageFuture<T1, T2, B>;
-
+    type Error = T1::Error;
     fn into_package(self) -> Self::Future {
         match self {
             Self::Left(left) => EitherIntoPackageFuture::T1 {
@@ -248,9 +248,9 @@ pin_project! {
 impl<T1, T2, B> Future for EitherIntoPackageFuture<T1, T2, B>
 where
     T1: IntoPackage<B>,
-    T2: IntoPackage<B>,
+    T2: IntoPackage<B, Error = T1::Error>,
 {
-    type Output = Result<Package<B>, Error>;
+    type Output = Result<Package<B>, T1::Error>;
 
     fn poll(
         self: core::pin::Pin<&mut Self>,

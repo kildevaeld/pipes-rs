@@ -1,16 +1,19 @@
+use alloc::boxed::Box;
 use async_trait::async_trait;
 use bytes::{BufMut, Bytes, BytesMut};
+use core::convert::Infallible;
 use futures::{TryStream, TryStreamExt};
-use pipes::{BoxError, Error};
 
 #[async_trait]
 pub trait Content {
-    async fn bytes(&mut self) -> Result<Bytes, Error>;
+    type Error;
+    async fn bytes(&mut self) -> Result<Bytes, Self::Error>;
 }
 
 #[async_trait]
 impl Content for Bytes {
-    async fn bytes(&mut self) -> Result<Bytes, Error> {
+    type Error = Infallible;
+    async fn bytes(&mut self) -> Result<Bytes, Self::Error> {
         Ok(self.clone())
     }
 }
@@ -44,14 +47,14 @@ impl<T> From<Bytes> for StreamContent<T> {
 impl<T> Content for StreamContent<T>
 where
     T: TryStream<Ok = Bytes> + Send + Unpin,
-    T::Error: Into<BoxError>,
 {
-    async fn bytes(&mut self) -> Result<Bytes, Error> {
+    type Error = T::Error;
+    async fn bytes(&mut self) -> Result<Bytes, Self::Error> {
         match &mut self.state {
             StreamContentState::Bytes(bs) => Ok(bs.clone()),
             StreamContentState::Stream(stream) => {
                 let mut bytes = BytesMut::new();
-                while let Some(next) = stream.try_next().await.map_err(Error::new)? {
+                while let Some(next) = stream.try_next().await? {
                     bytes.put(next);
                 }
 

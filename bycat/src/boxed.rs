@@ -1,5 +1,4 @@
 use super::work::Work;
-use crate::middleware::Middleware;
 use alloc::boxed::Box;
 use core::marker::PhantomData;
 use heather::{HBoxFuture, HSend, HSendSync, Hrc};
