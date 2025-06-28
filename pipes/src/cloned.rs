@@ -1,8 +1,9 @@
 use alloc::boxed::Box;
+use arbejd::Work;
 use async_stream::try_stream;
 use futures::{stream::BoxStream, Future, TryStreamExt};
 
-use crate::{Error, Source, Work};
+use crate::{Error, Source};
 
 pub trait AsyncClone: Sized {
     type Future<'a>: Future<Output = Result<Self, Error>>
@@ -61,7 +62,7 @@ where
 
     type Stream<'a> = BoxStream<'a, Result<T1::Output, Error>>;
 
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         Box::pin(try_stream! {
             let stream = self.source.create_stream(ctx.clone());
             futures::pin_mut!(stream);

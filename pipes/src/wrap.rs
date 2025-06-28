@@ -1,9 +1,10 @@
 use core::marker::PhantomData;
 
 use alloc::boxed::Box;
+use arbejd::Work;
 use futures::{future::BoxFuture, TryFuture, TryFutureExt};
 
-use crate::{Error, Work};
+use crate::Error;
 
 #[derive(Debug)]
 pub struct Wrap<T, F, C> {
@@ -38,21 +39,21 @@ impl<T, F, C> Wrap<T, F, C> {
     }
 }
 
-impl<T, F, U, C, R> Work<C, R> for Wrap<T, F, C>
+impl<T, F, U, C: Clone, R> Work<C, R> for Wrap<T, F, C>
 where
     T: Work<C, R> + Clone + Send + 'static,
     F: Fn(C, R, T) -> U + Clone + Send + 'static,
     U: TryFuture + Send,
-    U::Error: Into<Error>,
     C: Send + 'static,
     R: Send + 'static,
 {
+    type Error = U::Error;
     type Output = U::Ok;
-    type Future<'a> = BoxFuture<'a, Result<U::Ok, Error>>;
+    type Future<'a> = BoxFuture<'a, Result<U::Ok, U::Error>>;
 
-    fn call<'a>(&'a self, ctx: C, package: R) -> Self::Future<'a> {
+    fn call<'a>(&'a self, ctx: &'a C, package: R) -> Self::Future<'a> {
         let work = self.task.clone();
         let func = self.func.clone();
-        Box::pin(async move { (func)(ctx, package, work).map_err(Into::into).await })
+        Box::pin(async move { (func)(ctx.clone(), package, work).await })
     }
 }

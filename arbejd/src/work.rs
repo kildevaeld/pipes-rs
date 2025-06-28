@@ -82,3 +82,18 @@ where
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct NoopWork;
+
+impl<C, R: 'static> Work<C, R> for NoopWork {
+    type Output = R;
+    type Error = core::convert::Infallible;
+    type Future<'a>
+        = core::future::Ready<Result<R, Self::Error>>
+    where
+        C: 'a;
+    fn call<'a>(&'a self, _ctx: &'a C, package: R) -> Self::Future<'a> {
+        core::future::ready(Ok(package))
+    }
+}

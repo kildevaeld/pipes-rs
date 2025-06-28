@@ -11,17 +11,18 @@ mod error;
 mod matcher;
 mod pipeline;
 mod source;
-mod split;
+// mod split;
 mod then;
 mod unit;
-mod when;
+// mod when;
 // mod work;
 // mod work_many;
 mod wrap;
 
+use arbejd::NoopWork;
+
 pub use self::{
-    cloned::*, error::Result, error::*, matcher::*, pipeline::Pipeline, source::*, then::*,
-    unit::*, when::*,
+    cloned::*, error::Result, error::*, matcher::*, pipeline::Pipeline, source::*, unit::*,
 };
 
 pub mod prelude {

@@ -4,9 +4,9 @@ use either::Either;
 use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
 
-use crate::{and::And, cloned::AsyncCloned, error::Error, then::Then, Pipeline, SourceUnit};
+use crate::{cloned::AsyncCloned, error::Error, Pipeline, SourceUnit};
 
-use arbejd::Work;
+use arbejd::{pipe::And, then::Then, Work};
 
 pub trait Source<C> {
     type Item;

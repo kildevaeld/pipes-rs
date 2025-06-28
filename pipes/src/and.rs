@@ -64,9 +64,10 @@ where
         = AndUnitFuture<T1::Future<'a>, T2::Future<'a>>
     where
         T1: 'a,
-        T2: 'a;
+        T2: 'a,
+        C: 'a;
 
-    fn run<'a>(self, ctx: C) -> Self::Future<'a> {
+    fn run<'a>(self, ctx: &'a C) -> Self::Future<'a> {
         AndUnitFuture {
             future: futures::future::join(self.left.run(ctx.clone()), self.right.run(ctx)),
         }

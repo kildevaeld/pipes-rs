@@ -1,15 +1,17 @@
 use core::task::Poll;
 
+use arbejd::pipe::And;
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{and::And, Source};
+use crate::Source;
 
 pub trait Unit<C> {
     type Future<'a>: Future<Output = ()>
     where
-        Self: 'a;
-    fn run<'a>(self, ctx: C) -> Self::Future<'a>;
+        Self: 'a,
+        C: 'a;
+    fn run<'a>(self, ctx: &'a C) -> Self::Future<'a>;
 }
 
 pub trait UnitExt<C>: Unit<C> {
@@ -40,9 +42,12 @@ where
     S: Source<C> + 'static,
     for<'a> S::Item: 'a,
 {
-    type Future<'a> = SourceUnitFure<'a, S, C>;
+    type Future<'a>
+        = SourceUnitFure<'a, S, C>
+    where
+        C: 'a;
 
-    fn run<'a>(self, ctx: C) -> Self::Future<'a> {
+    fn run<'a>(self, ctx: &'a C) -> Self::Future<'a> {
         SourceUnitFure {
             stream: self.source.create_stream(ctx),
         }
@@ -51,7 +56,7 @@ where
 
 pin_project! {
     #[project(!Unpin)]
-    pub struct SourceUnitFure<'a, S: 'a, C> where  S: Source<C>, S::Item: 'a {
+    pub struct SourceUnitFure<'a, S: 'a, C: 'a> where  S: Source<C>, S::Item: 'a {
         #[pin]
         stream: S::Stream<'a>,
 

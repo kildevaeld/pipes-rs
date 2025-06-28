@@ -1,13 +1,9 @@
+use arbejd::{NoopWork, Work};
 use core::{marker::PhantomData, mem::transmute, task::Poll};
 use futures::{ready, Stream, TryFuture, TryStream};
 use pin_project_lite::pin_project;
 
-use crate::{
-    error::Error,
-    source::Source,
-    work::{NoopWork, Work},
-    wrap::Wrap,
-};
+use crate::{error::Error, source::Source, wrap::Wrap};
 
 #[derive(Debug)]
 pub struct Pipeline<S, W, C> {
@@ -78,7 +74,7 @@ where
     type Item = W::Output;
     type Stream<'a> = PipelineStream<'a, S, W, C>;
 
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         PipelineStream {
             stream: self.source.create_stream(ctx.clone()),
             work: self.work,
@@ -96,7 +92,7 @@ pin_project! {
         work: W,
         #[pin]
         future: Option<W::Future<'a>>,
-        ctx: C
+        ctx: &'a C
     }
 }
 
