@@ -4,16 +4,16 @@ resolver = "2"
 
 members = [
   "pipes",
-  "pipes-img",
-  "infinitask",
-  # "pipes-infinity",
-  # "kravl-core",
-  "pipes-fs",
-  "pipes-http",
-  "pipes-util",
-  "pipes-quick",
-  "pipes-package",
-  "pipes-example", "arbejd",
+  # "pipes-img",
+  # "infinitask",
+
+  # "pipes-fs",
+  # "pipes-http",
+  # "pipes-util",
+  # "pipes-quick",
+  # "pipes-package",
+  # "pipes-example",
+  "arbejd",
 ]
 
 

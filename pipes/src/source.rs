@@ -4,20 +4,27 @@ use either::Either;
 use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
 use pin_project_lite::pin_project;
 
-use crate::{and::And, cloned::AsyncCloned, error::Error, then::Then, Pipeline, SourceUnit, Work};
+use crate::{and::And, cloned::AsyncCloned, error::Error, then::Then, Pipeline, SourceUnit};
+
+use arbejd::Work;
 
 pub trait Source<C> {
     type Item;
     type Stream<'a>: Stream<Item = Result<Self::Item, Error>>
     where
-        Self: 'a;
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a>;
+        Self: 'a,
+        C: 'a;
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a>;
 }
 
 impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
     type Item = T;
-    type Stream<'a> = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>;
-    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    type Stream<'a>
+        = futures::stream::Iter<alloc::vec::IntoIter<Result<T, Error>>>
+    where
+        Self: 'a,
+        C: 'a;
+    fn create_stream<'a>(self, _ctx: &'a C) -> Self::Stream<'a> {
         futures::stream::iter(self)
     }
 }
@@ -25,9 +32,13 @@ impl<T: 'static, C> Source<C> for alloc::vec::Vec<Result<T, Error>> {
 impl<T: 'static, C> Source<C> for Result<T, Error> {
     type Item = T;
 
-    type Stream<'a> = futures::stream::Once<futures::future::Ready<Result<T, Error>>>;
+    type Stream<'a>
+        = futures::stream::Once<futures::future::Ready<Result<T, Error>>>
+    where
+        Self: 'a,
+        C: 'a;
 
-    fn create_stream<'a>(self, _ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, _ctx: &'a C) -> Self::Stream<'a> {
         futures::stream::once(futures::future::ready(self))
     }
 }
@@ -101,9 +112,10 @@ where
         = EitherSourceStream<'a, T1, T2, C>
     where
         T1: 'a,
-        T2: 'a;
+        T2: 'a,
+        C: 'a;
 
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         match self {
             Self::Left(left) => EitherSourceStream::T1 {
                 stream: left.create_stream(ctx),
@@ -117,7 +129,7 @@ where
 
 pin_project! {
     #[project = EitherStreamProj]
-    pub enum EitherSourceStream<'a, T1: 'a, T2: 'a, C> where T1: Source<C>, T2: Source<C> {
+    pub enum EitherSourceStream<'a, T1: 'a, T2: 'a, C: 'a> where T1: Source<C>, T2: Source<C> {
         T1 {
             #[pin]
             stream: T1::Stream<'a>
@@ -181,9 +193,10 @@ where
         = FilterStream<'a, T, W, C>
     where
         T: 'a,
-        W: 'a;
+        W: 'a,
+        C: 'a;
 
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         FilterStream {
             stream: self.source.create_stream(ctx.clone()),
             work: self.work,
@@ -195,7 +208,7 @@ where
 
 pin_project! {
     #[project(!Unpin)]
-    pub struct FilterStream<'a, T: 'a, W: 'static, C> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
+    pub struct FilterStream<'a, T: 'a, W: 'a, C: 'a> where T: Source<C>, W: Work<C,T::Item, Output = Option<T::Item>> {
         #[pin]
         stream: T::Stream<'a>,
         work: W,
@@ -253,9 +266,10 @@ where
     type Stream<'a>
         = TryFlatten<S::Stream<'a>>
     where
-        S: 'a;
+        S: 'a,
+        C: 'a;
 
-    fn create_stream<'a>(self, ctx: C) -> Self::Stream<'a> {
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         self.source.create_stream(ctx).try_flatten()
     }
 }

@@ -10,6 +10,9 @@ default = []
 std = ["futures/std"]
 
 [dependencies]
+arbejd = { path = "../arbejd", default-features = false }
+
+
 async-stream = { version = "0.3" }
 futures = { workspace = true }
 pin-project-lite = { workspace = true }

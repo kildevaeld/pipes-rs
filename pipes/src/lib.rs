@@ -15,17 +15,18 @@ mod split;
 mod then;
 mod unit;
 mod when;
-mod work;
+// mod work;
 // mod work_many;
 mod wrap;
 
 pub use self::{
     cloned::*, error::Result, error::*, matcher::*, pipeline::Pipeline, source::*, then::*,
-    unit::*, when::*, work::*,
+    unit::*, when::*,
 };
 
 pub mod prelude {
-    pub use super::{SourceExt, UnitExt, WorkExt};
+    pub use super::{SourceExt, UnitExt};
+    pub use arbejd::prelude::*;
 }
 
 pub fn pipe<C, T>(source: T) -> Pipeline<T, NoopWork, C> {

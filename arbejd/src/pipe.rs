@@ -6,8 +6,8 @@ use crate::Work;
 
 #[derive(Debug, Clone, Copy)]
 pub struct And<T1, T2> {
-    left: T1,
-    right: T2,
+    pub left: T1,
+    pub right: T2,
 }
 
 impl<T1, T2> And<T1, T2> {
