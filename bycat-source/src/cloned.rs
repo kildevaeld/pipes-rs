@@ -1,31 +1,34 @@
+use core::error::Error;
+
 use alloc::boxed::Box;
-use arbejd::Work;
 use async_stream::try_stream;
+use bycat::Work;
 use futures::{stream::BoxStream, Future, TryStreamExt};
 
-use crate::{Error, Source};
+use crate::Source;
 
 pub trait AsyncClone: Sized {
-    type Future<'a>: Future<Output = Result<Self, Error>>
+    type Error;
+    type Future<'a>: Future<Output = Result<Self, Self::Error>>
     where
         Self: 'a;
 
     fn async_clone<'a>(&'a mut self) -> Self::Future<'a>;
 }
 
-impl<T> AsyncClone for T
-where
-    T: Clone,
-{
-    type Future<'a>
-        = futures::future::Ready<Result<Self, Error>>
-    where
-        T: 'a;
+// impl<T> AsyncClone for T
+// where
+//     T: Clone,
+// {
+//     type Future<'a>
+//         = futures::future::Ready<Result<Self, Error>>
+//     where
+//         T: 'a;
 
-    fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
-        futures::future::ready(Ok(self.clone()))
-    }
-}
+//     fn async_clone<'a>(&'a mut self) -> Self::Future<'a> {
+//         futures::future::ready(Ok(self.clone()))
+//     }
+// }
 
 #[derive(Debug, Clone, Copy)]
 pub struct AsyncCloned<S, T1, T2> {
@@ -48,7 +51,7 @@ impl<S, T1, T2, C> Source<C> for AsyncCloned<S, T1, T2>
 where
     S: Source<C> + 'static + Send,
     for<'a> S::Stream<'a>: Send,
-    S::Item: AsyncClone + Send,
+    S::Item: AsyncClone<Error = S::Error> + Send,
     for<'a> <S::Item as AsyncClone>::Future<'a>: Send,
     T1::Output: Send,
     T1: Work<C, S::Item> + 'static + Clone + Send,
@@ -60,7 +63,9 @@ where
 {
     type Item = T1::Output;
 
-    type Stream<'a> = BoxStream<'a, Result<T1::Output, Error>>;
+    type Error = S::Error;
+
+    type Stream<'a> = BoxStream<'a, Result<T1::Output, Self::Error>>;
 
     fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         Box::pin(try_stream! {
