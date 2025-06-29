@@ -3,8 +3,13 @@ name = "bycat-package"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+serde = ["dep:serde", "toback", "bycat-error"]
+
+
 [dependencies]
 bycat = { path = "../bycat" }
+bycat-error = { path = "../bycat-error", optional = true }
 pin-project-lite = { workspace = true }
 futures = { workspace = true }
 either = { workspace = true }
@@ -14,3 +19,9 @@ fast-glob = { version = "0.4", default-features = false }
 bytes = { workspace = true }
 
 async-trait = { version = "0.1" }
+
+serde = { workspace = true, features = ["derive"], optional = true }
+toback = { git = "https://github.com/kildevaeld/toback-rs", features = [
+  "send",
+  "json",
+], optional = true }

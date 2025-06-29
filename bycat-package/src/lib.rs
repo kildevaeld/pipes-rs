@@ -7,6 +7,11 @@ mod ext;
 mod into_package;
 mod matcher;
 mod package;
+#[cfg(feature = "serde")]
+mod serialize;
+
+#[cfg(feature = "serde")]
+pub use self::serialize::*;
 
 pub use self::{
     content::*,

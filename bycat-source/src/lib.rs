@@ -9,6 +9,8 @@ extern crate std;
 mod and;
 // mod cloned;
 // mod error;
+#[cfg(feature = "channel")]
+pub mod channel;
 mod pipeline;
 mod source;
 mod then;

@@ -1,11 +1,17 @@
 [package]
-name = "pipes-img"
+name = "bycat-img"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+
 [dependencies]
-pipes = { path = "../pipes" }
-pipes-package = { path = "../pipes-package" }
+bycat = { path = "../bycat" }
+bycat-package = { path = "../bycat-package" }
+bycat-error = { path = "../bycat-error" }
+
+heather = { workspace = true }
+
 image = { version = "0.25", default-features = false, features = [
     "jpeg",
     "png",

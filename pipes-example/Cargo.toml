@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pipes = { path = "../pipes" }
-pipes-package = { path = "../pipes-package" }
-pipes-http = { path = "../pipes-http" }
-pipes-fs = { path = "../pipes-fs" }
-pipes-img = { path = "../pipes-img" }
+bycat = { path = "../bycat", features = ["alloc"] }
+bycat-package = { path = "../bycat-package" }
+bycat-http = { path = "../bycat-http" }
+bycat-fs = { path = "../bycat-fs" }
+bycat-img = { path = "../bycat-img" }
+bycat-source = { path = "../bycat-source", features = ["alloc"] }
+bycat-error = { path = "../bycat-error" }
+
+
 tokio = { version = "1", features = ["full"] }
 bytes.workspace = true

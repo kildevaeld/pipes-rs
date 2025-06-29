@@ -4,7 +4,7 @@ use async_walkdir::WalkDir;
 use futures::{Stream, TryStreamExt};
 
 pub use async_walkdir::Error as WalkDirError;
-use pipes::Matcher;
+use bycat::Matcher;
 use relative_path::RelativePathBuf;
 
 pub struct FileResolver {

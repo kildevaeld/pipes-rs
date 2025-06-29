@@ -1,7 +1,8 @@
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String};
+use heather::HSendSync;
 
-pub trait Matcher<T> {
+pub trait Matcher<T>: HSendSync {
     fn is_match(&self, path: &T) -> bool;
 }
 
@@ -27,7 +28,7 @@ impl<T> Matcher<T> for Box<dyn Matcher<T>> {
 
 impl<T, F> Matcher<T> for F
 where
-    F: Fn(&T) -> bool,
+    F: Fn(&T) -> bool + Send + Sync,
 {
     fn is_match(&self, path: &T) -> bool {
         (self)(path)

@@ -1,5 +1,5 @@
 [package]
-name = "pipes-http"
+name = "bycat-http"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,8 +7,9 @@ edition = "2024"
 
 [dependencies]
 http-body = { version = "1" }
-pipes = { path = "../pipes" }
-pipes-package = { path = "../pipes-package" }
+bycat = { path = "../bycat" }
+bycat-package = { path = "../bycat-package" }
+bycat-error = { path = "../bycat-error" }
 reqwest = { version = "0.12" }
 mime = { version = "0.3" }
 futures = { version = "0.3" }

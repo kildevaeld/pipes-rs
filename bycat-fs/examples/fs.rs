@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use pipes::{SourceExt, Unit, work_fn};
-use pipes_fs::FsSource;
-use pipes_package::{Package, match_glob};
-use pipes_util::Decode;
+use bycat::work_fn;
+use bycat_error::Error;
+use bycat_fs::FsSource;
+use bycat_package::{Decode, Package, match_glob};
+use bycat_source::{Unit, pipe, prelude::*};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Test {
@@ -12,14 +13,14 @@ pub struct Test {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    let fs = pipes::pipe(FsSource::new(PathBuf::from(".")).pattern(match_glob("**/*.json")))
+    let fs = pipe(FsSource::new(PathBuf::from(".")).pattern(match_glob("**/*.json")))
         .pipe(Decode::new())
         .pipe(work_fn(|_, pkg: Package<Test>| async move {
             //
             println!("{}", pkg.content().name);
-            Result::<_, pipes::Error>::Ok(())
+            Result::<_, Error>::Ok(())
         }))
         .unit()
-        .run(())
+        .run(&())
         .await;
 }

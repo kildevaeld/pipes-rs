@@ -1,7 +1,8 @@
 use std::convert::Infallible;
 
+use bycat::work_fn;
+use bycat_source::{iter, pipe, prelude::*, Source};
 use futures::TryStreamExt;
-use pipes::{iter, pipe, prelude::*, work_fn, Source};
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {

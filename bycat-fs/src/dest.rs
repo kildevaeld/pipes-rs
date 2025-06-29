@@ -1,9 +1,10 @@
-use std::path::PathBuf;
-
+use bycat::Work;
+use bycat_error::{BoxError, Error};
+use bycat_package::{IntoPackage, Package};
 use futures::future::BoxFuture;
+use heather::{HBoxFuture, HSend};
 use mime::Mime;
-use pipes::{Error, Work};
-use pipes_package::{IntoPackage, Package};
+use std::path::PathBuf;
 use tokio::io::AsyncWriteExt;
 
 use crate::Body;
@@ -19,22 +20,30 @@ impl FsDest {
     }
 }
 
-impl<C, T: IntoPackage<Body> + Send> Work<C, T> for FsDest
+impl<C, T: IntoPackage<Body>> Work<C, T> for FsDest
 where
-    T::Future: Send,
+    T: IntoPackage<Body> + HSend,
+    T::Future: HSend,
+    T::Error: Into<BoxError>,
     for<'a> T: 'a,
 {
     type Output = Package<Body>;
 
-    type Future<'a> = BoxFuture<'a, Result<Package<Body>, Error>>;
+    type Error = Error;
 
-    fn call<'a>(&'a self, _ctx: C, req: T) -> Self::Future<'a> {
+    type Future<'a>
+        = HBoxFuture<'a, Result<Package<Body>, Error>>
+    where
+        C: 'a;
+
+    fn call<'a>(&'a self, _ctx: &'a C, req: T) -> Self::Future<'a> {
         let path = self.path.clone();
         Box::pin(async move {
+            let mut package = req.into_package().await.map_err(|err| Error::new(err))?;
+
             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
                 tokio::fs::create_dir_all(&path).await.map_err(Error::new)?
             }
-            let mut package = req.into_package().await?;
 
             let file_path = package.path().to_logical_path(&path);
 
@@ -90,12 +99,14 @@ impl KravlDestination {
 
 impl<C> Work<C, Package<Body>> for KravlDestination {
     type Output = Package<Body>;
+    type Error = Error;
     type Future<'a>
-        = BoxFuture<'a, Result<Self::Output, pipes::Error>>
+        = BoxFuture<'a, Result<Self::Output, Error>>
     where
-        Self: 'a;
+        Self: 'a,
+        C: 'a;
 
-    fn call<'a>(&'a self, _ctx: C, mut req: Package<Body>) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, mut req: Package<Body>) -> Self::Future<'a> {
         Box::pin(async move {
             let path = req.path().to_logical_path(&self.root);
 
@@ -109,10 +120,10 @@ impl<C> Work<C, Package<Body>> for KravlDestination {
                     .create(true)
                     .open(&path)
                     .await
-                    .map_err(pipes::Error::new)?;
+                    .map_err(Error::new)?;
                 let bytes = req.replace_content(Body::Empty).bytes().await?;
-                file.write_all(&bytes).await.map_err(pipes::Error::new)?;
-                file.write_all(b"\n").await.map_err(pipes::Error::new)?;
+                file.write_all(&bytes).await.map_err(Error::new)?;
+                file.write_all(b"\n").await.map_err(Error::new)?;
             } else {
                 let mut file = tokio::fs::OpenOptions::default()
                     .create(true)
@@ -120,9 +131,9 @@ impl<C> Work<C, Package<Body>> for KravlDestination {
                     .write(true)
                     .open(&path)
                     .await
-                    .map_err(pipes::Error::new)?;
+                    .map_err(Error::new)?;
                 let bytes = req.replace_content(Body::Empty).bytes().await?;
-                file.write_all(&bytes).await.map_err(pipes::Error::new)?;
+                file.write_all(&bytes).await.map_err(Error::new)?;
             }
 
             Ok(req)

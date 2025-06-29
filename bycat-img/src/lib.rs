@@ -6,12 +6,14 @@ use std::{
     task::Poll,
 };
 
+use bycat::Work;
+use bycat_error::Error;
+use bycat_package::{Content, Package};
 use bytes::Bytes;
 use futures::{future::BoxFuture, ready};
+use heather::{HBoxFuture, HSend};
 use image::{ColorType, DynamicImage};
 use pin_project_lite::pin_project;
-use pipes::{Error, Work};
-use pipes_package::{Content, Package};
 
 pub type ImagePackage = Package<DynamicImage>;
 
@@ -39,8 +41,9 @@ where
     C: 'static,
 {
     type Output = ImagePackage;
+    type Error = Error;
     type Future<'a> = SpawnBlockFuture<ImagePackage>;
-    fn call<'a>(&'a self, _ctx: C, mut image: ImagePackage) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, mut image: ImagePackage) -> Self::Future<'a> {
         let ops = self.0.clone();
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -153,8 +156,10 @@ where
     C: 'static,
 {
     type Output = Package<Bytes>;
+    type Error = Error;
+
     type Future<'a> = SpawnBlockFuture<Package<Bytes>>;
-    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<DynamicImage>) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, mut pkg: Package<DynamicImage>) -> Self::Future<'a> {
         let format = self.format;
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -211,27 +216,29 @@ impl<C> Default for ImageWork<C> {
 impl<C, B> Work<C, Package<B>> for ImageWork<C>
 where
     for<'a> C: 'a,
-    B: Content + Send,
+    B: Content + HSend,
+    B::Error: Into<Error>,
     for<'a> B: 'a,
 {
     type Output = Package<DynamicImage>;
+    type Error = Error;
 
     type Future<'a>
-        = BoxFuture<'a, Result<Self::Output, Error>>
+        = HBoxFuture<'a, Result<Self::Output, Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, _ctx: C, mut pkg: Package<B>) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, mut pkg: Package<B>) -> Self::Future<'a> {
         Box::pin(async move {
-            let bytes = pkg.content_mut().bytes().await?;
+            let bytes = pkg.content_mut().bytes().await.map_err(Into::into)?;
 
-            let img = image::io::Reader::new(Cursor::new(bytes))
+            let img = image::ImageReader::new(Cursor::new(bytes))
                 .with_guessed_format()
                 .map_err(Error::new)?
                 .decode()
                 .map_err(Error::new)?;
 
-            Result::<_, Error>::Ok(pkg.map(|_| async move { img }).await)
+            Result::<_, Error>::Ok(pkg.map_content(img))
         })
     }
 }

@@ -1,14 +1,14 @@
+use bycat_error::{BoxError, Error};
+use bycat_package::{Content, async_trait};
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::{TryStreamExt, stream::BoxStream};
-use pipes::Error;
-use pipes_package::{Content, async_trait};
 use std::path::{Path, PathBuf};
 use tokio::io::AsyncWriteExt;
 
 pub enum Body {
     Bytes(Bytes),
     Path(PathBuf),
-    Stream(BoxStream<'static, Result<Bytes, Error>>),
+    Stream(BoxStream<'static, Result<Bytes, BoxError>>),
     Empty,
 }
 
@@ -37,7 +37,9 @@ impl Body {
 
             *self = Body::Bytes(buf.freeze());
         } else if let Body::Path(path) = self {
-            let content = tokio::fs::read(path).await.map_err(Error::new)?;
+            let content = tokio::fs::read(&*path)
+                .await
+                .map_err(|err| Error::new(err).value("path", path.display().to_string()))?;
             *self = Body::Bytes(content.into());
         }
 
@@ -57,29 +59,39 @@ impl Body {
     pub async fn write_to(&mut self, file_path: &Path) -> Result<(), Error> {
         match self {
             Body::Bytes(bs) => {
-                let mut file = tokio::fs::File::create(file_path)
-                    .await
-                    .map_err(Error::new)?;
-                file.write_all(&*bs).await.map_err(Error::new)?;
-                file.flush().await.map_err(Error::new)?;
+                let mut file = tokio::fs::File::create(file_path).await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
+                file.write_all(&*bs).await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
+                file.flush().await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
             }
             Body::Stream(stream) => {
-                let mut file = tokio::fs::File::create(file_path)
-                    .await
-                    .map_err(Error::new)?;
+                let mut file = tokio::fs::File::create(file_path).await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
 
                 let mut bytes = BytesMut::new();
-                while let Some(next) = stream.try_next().await? {
-                    file.write_all(&next).await.map_err(Error::new)?;
+                while let Some(next) = stream.try_next().await.map_err(Error::new)? {
+                    file.write_all(&next).await.map_err(|err| {
+                        Error::new(err).value("path", file_path.display().to_string())
+                    })?;
                     bytes.put(next);
                 }
 
                 *self = Body::Bytes(bytes.freeze());
 
-                file.flush().await.map_err(Error::new)?;
+                file.flush().await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
             }
             Body::Path(path) => {
-                tokio::fs::copy(path, file_path).await.map_err(Error::new)?;
+                tokio::fs::copy(path, file_path).await.map_err(|err| {
+                    Error::new(err).value("path", file_path.display().to_string())
+                })?;
             }
             Body::Empty => {}
         }
@@ -90,6 +102,7 @@ impl Body {
 
 #[async_trait]
 impl Content for Body {
+    type Error = Error;
     async fn bytes(&mut self) -> Result<Bytes, Error> {
         Body::bytes(self).await
     }

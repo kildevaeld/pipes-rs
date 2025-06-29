@@ -1,11 +1,12 @@
 use core::{pin::Pin, task::Poll};
 
+use bycat::Work;
+use bycat_error::Error;
+use bycat_package::{IntoPackage, Package, StreamContent};
 use bytes::Bytes;
 use futures::{Future, FutureExt, Stream, future::BoxFuture};
 use http_body::Body as _;
 use mime::Mime;
-use pipes::{Error, Work};
-use pipes_package::{IntoPackage, Package, StreamContent};
 use reqwest::{Client, Method, Request, Response, Url};
 
 pub fn get(url: &str) -> Result<Request, Error> {
@@ -62,10 +63,14 @@ impl HttpWork {
 
 impl<C> Work<C, Request> for HttpWork {
     type Output = HttpResponse;
+    type Error = Error;
 
-    type Future<'a> = BoxFuture<'a, Result<Self::Output, Error>>;
+    type Future<'a>
+        = BoxFuture<'a, Result<Self::Output, Error>>
+    where
+        C: 'a;
 
-    fn call<'a>(&'a self, _ctx: C, package: Request) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, package: Request) -> Self::Future<'a> {
         async move {
             self.client
                 .execute(package)
@@ -100,6 +105,7 @@ impl From<HttpResponse> for Response {
 }
 impl IntoPackage<StreamContent<BodyStream>> for HttpResponse {
     type Future = ResponseIntoPackageFuture;
+    type Error = Error;
 
     fn into_package(self) -> Self::Future {
         ResponseIntoPackageFuture {

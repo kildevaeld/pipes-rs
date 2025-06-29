@@ -1,27 +1,28 @@
 [package]
-name = "pipes"
+name = "bycat-source"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = []
 std = ["futures/std"]
 alloc = []
+channel = ["flume", "bycat-error"]
 
 [dependencies]
 bycat = { path = "../bycat", default-features = false }
-
-
+bycat-error = { path = "../bycat-error", optional = true }
 async-stream = { version = "0.3" }
 futures = { workspace = true }
 pin-project-lite = { workspace = true }
 either = { version = "1" }
-
+flume = { version = "0.11", features = [
+  "async",
+], default-features = false, optional = true }
 
 [dev-dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["rt", "macros"] }
 
 
 [[example]]

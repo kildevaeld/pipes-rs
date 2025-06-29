@@ -1,12 +1,19 @@
 [package]
-name = "pipes-fs"
+name = "bycat-fs"
 version = "0.1.0"
 edition = "2024"
 
 [features]
 
 [dependencies]
-pipes-package = { path = "../pipes-package" }
+bycat-package = { path = "../bycat-package" }
+bycat-source = { path = "../bycat-source", features = ["std"] }
+bycat = { path = "../bycat" }
+bycat-error = { path = "../bycat-error" }
+
+
+heather = { workspace = true }
+
 tokio = { version = "1", features = ["fs", "io-util"] }
 async-walkdir = { version = "2" }
 fast-glob = { version = "0.4" }
@@ -15,7 +22,6 @@ relative-path = { workspace = true, features = ["serde", "std"] }
 futures = { version = "0.3" }
 pathdiff = { version = "0.2" }
 
-pipes = { path = "../pipes", features = ["std"] }
 mime_guess = { version = "2" }
 
 pin-project-lite = { version = "0.2" }
@@ -27,4 +33,6 @@ mime = { version = "0.3" }
 [dev-dependencies]
 tokio = { version = "1", features = ["fs", "io-util", "rt", "macros"] }
 serde = { version = "1", features = ["derive"] }
-pipes-util = { path = "../pipes-util", features = ["serde"] }
+bycat-package = { path = "../bycat-package", features = ["serde"] }
+
+# pipes-util = { path = "../pipes-util", features = ["serde"] }
