@@ -7,7 +7,7 @@ extern crate alloc;
 extern crate std;
 
 mod and;
-mod cloned;
+// mod cloned;
 // mod error;
 #[cfg(feature = "channel")]
 pub mod channel;
