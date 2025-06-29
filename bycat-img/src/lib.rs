@@ -10,7 +10,7 @@ use bycat::Work;
 use bycat_error::Error;
 use bycat_package::{Content, Package};
 use bytes::Bytes;
-use futures::{future::BoxFuture, ready};
+use futures::ready;
 use heather::{HBoxFuture, HSend};
 use image::{ColorType, DynamicImage};
 use pin_project_lite::pin_project;
@@ -36,13 +36,13 @@ impl<C> Clone for ImageOp<C> {
     }
 }
 
-impl<C> Work<C, ImagePackage> for ImageOp<C>
-where
-    C: 'static,
-{
+impl<C> Work<C, ImagePackage> for ImageOp<C> {
     type Output = ImagePackage;
     type Error = Error;
-    type Future<'a> = SpawnBlockFuture<ImagePackage>;
+    type Future<'a>
+        = SpawnBlockFuture<ImagePackage>
+    where
+        C: 'a;
     fn call<'a>(&'a self, _ctx: &'a C, mut image: ImagePackage) -> Self::Future<'a> {
         let ops = self.0.clone();
         SpawnBlockFuture {
@@ -82,6 +82,10 @@ pub fn save<C>(format: Format) -> Save<C> {
         format,
         ctx: PhantomData,
     }
+}
+
+pub fn load<C>() -> ImageWork<C> {
+    ImageWork(PhantomData)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -151,15 +155,15 @@ impl<C> Clone for Save<C> {
 
 impl<C> Copy for Save<C> {}
 
-impl<C> Work<C, Package<DynamicImage>> for Save<C>
-where
-    C: 'static,
-{
+impl<C> Work<C, ImagePackage> for Save<C> {
     type Output = Package<Bytes>;
     type Error = Error;
 
-    type Future<'a> = SpawnBlockFuture<Package<Bytes>>;
-    fn call<'a>(&'a self, _ctx: &'a C, mut pkg: Package<DynamicImage>) -> Self::Future<'a> {
+    type Future<'a>
+        = SpawnBlockFuture<Package<Bytes>>
+    where
+        C: 'a;
+    fn call<'a>(&'a self, _ctx: &'a C, mut pkg: ImagePackage) -> Self::Future<'a> {
         let format = self.format;
         SpawnBlockFuture {
             future: tokio::task::spawn_blocking(move || {
@@ -215,18 +219,18 @@ impl<C> Default for ImageWork<C> {
 
 impl<C, B> Work<C, Package<B>> for ImageWork<C>
 where
-    for<'a> C: 'a,
     B: Content + HSend,
-    B::Error: Into<Error>,
     for<'a> B: 'a,
+    B::Error: Into<Error>,
 {
-    type Output = Package<DynamicImage>;
+    type Output = ImagePackage;
     type Error = Error;
 
     type Future<'a>
         = HBoxFuture<'a, Result<Self::Output, Error>>
     where
-        Self: 'a;
+        Self: 'a,
+        C: 'a;
 
     fn call<'a>(&'a self, _ctx: &'a C, mut pkg: Package<B>) -> Self::Future<'a> {
         Box::pin(async move {

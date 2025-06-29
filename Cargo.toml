@@ -26,5 +26,6 @@ futures = { version = "0.3", default-features = false }
 pin-project-lite = { version = "0.2" }
 either = { version = "1", default-features = false }
 heather = { git = "https://github.com/kildevaeld/heather", default-features = false, features = [
+
 ] }
 serde = { version = "1", default-features = false }

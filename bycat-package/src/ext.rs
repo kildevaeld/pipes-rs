@@ -1,7 +1,6 @@
 use core::marker::PhantomData;
 
 use bycat::Work;
-use bycat_error::Error;
 use bytes::Bytes;
 
 use crate::{Content, IntoPackage, Package, into_package::IntoPackageWork};
@@ -21,25 +20,25 @@ pub trait WorkExt<C, T>: Work<C, T> {
 
 impl<C, T, W> WorkExt<C, T> for W where W: Work<C, T> {}
 
-pub struct ContentIntoBytes<T> {
-    work: T,
-}
+// pub struct ContentIntoBytes<T> {
+//     work: T,
+// }
 
-impl<T, C, I> Work<C, Package<I>> for ContentIntoBytes<T>
-where
-    T: Work<C, I>,
-    I: Content,
-{
-    type Output = Package<Bytes>;
+// impl<T, C, I> Work<C, Package<I>> for ContentIntoBytes<T>
+// where
+//     T: Work<C, I>,
+//     I: Content,
+// {
+//     type Output = Package<Bytes>;
 
-    type Error = Error;
+//     type Error = Error;
 
-    type Future<'a>
-    where
-        Self: 'a,
-        C: 'a;
+//     type Future<'a>
+//     where
+//         Self: 'a,
+//         C: 'a;
 
-    fn call<'a>(&'a self, context: &'a C, req: Package<I>) -> Self::Future<'a> {
-        todo!()
-    }
-}
+//     fn call<'a>(&'a self, context: &'a C, req: Package<I>) -> Self::Future<'a> {
+//         todo!()
+//     }
+// }

@@ -20,11 +20,9 @@ impl FsDest {
     }
 }
 
-impl<C, T: IntoPackage<Body>> Work<C, T> for FsDest
+impl<C, T> Work<C, Package<T>> for FsDest
 where
-    T: IntoPackage<Body> + HSend,
-    T::Future: HSend,
-    T::Error: Into<BoxError>,
+    T: Into<Body> + HSend,
     for<'a> T: 'a,
 {
     type Output = Package<Body>;
@@ -36,10 +34,10 @@ where
     where
         C: 'a;
 
-    fn call<'a>(&'a self, _ctx: &'a C, req: T) -> Self::Future<'a> {
+    fn call<'a>(&'a self, _ctx: &'a C, req: Package<T>) -> Self::Future<'a> {
         let path = self.path.clone();
         Box::pin(async move {
-            let mut package = req.into_package().await.map_err(|err| Error::new(err))?;
+            let mut package = req.map(|body| async move { body.into() }).await;
 
             if !tokio::fs::try_exists(&path).await.map_err(Error::new)? {
                 tokio::fs::create_dir_all(&path).await.map_err(Error::new)?

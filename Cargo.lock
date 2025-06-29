@@ -291,6 +291,7 @@ dependencies = [
  "either",
  "flume",
  "futures",
+ "heather",
  "pin-project-lite",
  "tokio",
 ]

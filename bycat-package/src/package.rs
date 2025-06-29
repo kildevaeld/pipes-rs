@@ -76,6 +76,7 @@ impl Clone for Meta {
     }
 }
 
+#[derive(Clone)]
 pub struct Package<B> {
     pub(crate) name: RelativePathBuf,
     pub(crate) mime: Mime,

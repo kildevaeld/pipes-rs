@@ -1,3 +1,5 @@
+#[cfg(feature = "alloc")]
+use crate::cloned::AsyncCloned;
 use crate::{Pipeline, SourceUnit};
 use bycat::{pipe::And, then::Then, IntoResult, ResultIter, Work};
 use core::{mem::transmute, task::Poll};
@@ -100,12 +102,13 @@ pub trait SourceExt<C>: Source<C> {
         Flatten { source: self }
     }
 
-    // fn cloned<T1, T2>(self, work1: T1, work2: T2) -> AsyncCloned<Self, T1, T2>
-    // where
-    //     Self: Sized,
-    // {
-    //     AsyncCloned::new(self, work1, work2)
-    // }
+    #[cfg(feature = "alloc")]
+    fn cloned<T1, T2>(self, work1: T1, work2: T2) -> AsyncCloned<Self, T1, T2>
+    where
+        Self: Sized,
+    {
+        AsyncCloned::new(self, work1, work2)
+    }
 
     fn then<W>(self, work: W) -> Then<Self, W>
     where

@@ -7,7 +7,7 @@ edition = "2021"
 
 [features]
 std = ["futures/std"]
-alloc = []
+alloc = ["heather/alloc"]
 channel = ["flume", "bycat-error"]
 
 [dependencies]
@@ -20,6 +20,8 @@ either = { version = "1" }
 flume = { version = "0.11", features = [
   "async",
 ], default-features = false, optional = true }
+
+heather = { workspace = true, features = [] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

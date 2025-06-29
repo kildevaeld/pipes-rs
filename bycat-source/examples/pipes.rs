@@ -14,7 +14,11 @@ async fn main() {
         .pipe(work_fn(|ctx, pkg| async move {
             println!("Work 2: {pkg}");
             Result::<_, Infallible>::Ok("next other")
-        }));
+        }))
+        .cloned(
+            work_fn(|ctx, req| async { Result::<_, Infallible>::Ok("Cloned 1") }),
+            work_fn(|ctx, req| async { Result::<_, Infallible>::Ok("Cloned 2") }),
+        );
 
     pipe.create_stream(&())
         .try_for_each(|rx| async move {
