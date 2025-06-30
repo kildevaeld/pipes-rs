@@ -4,9 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-pipes = { path = "../pipes" }
-pipes-package = { path = "../pipes-package" }
-pipes-util = { path = "../pipes-util" }
+bycat = { path = "../bycat" }
+bycat-package = { path = "../bycat-package" }
+# bycat-util = { path = "../bycat-util" }
 
 rquickjs = { version = "0.8" }
 rquickjs-util = { git = "https://github.com/fairy-render/klaver" }

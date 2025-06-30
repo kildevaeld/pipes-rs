@@ -1,6 +1,6 @@
+use bycat_package::{Bytes, Mime, Package};
 use klaver::{RuntimeError, modules::GlobalInfo};
 use klaver_wintercg::{console::ConsoleWriter, streams::ReadableStream};
-use pipes_package::{Bytes, Mime, Package};
 use rquickjs::{Ctx, FromJs, Object};
 use rquickjs_util::{Buffer, StringRef, Val};
 use std::{borrow::Cow, str::FromStr};

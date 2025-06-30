@@ -10,7 +10,7 @@ members = [
   "bycat-fs",
   "bycat-http",
   # "pipes-util",
-  # "pipes-quick",
+  "pipes-quick",
   "bycat-package",
   "pipes-example",
   "bycat",
