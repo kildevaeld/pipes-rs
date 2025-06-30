@@ -27,6 +27,9 @@ pub use self::{
 #[cfg(feature = "alloc")]
 pub use self::boxed::{BoxWork, box_work};
 
+#[cfg(feature = "tower")]
+pub use self::tower::{Tower, TowerFuture};
+
 pub mod prelude {
     pub use super::work_ext::*;
 }

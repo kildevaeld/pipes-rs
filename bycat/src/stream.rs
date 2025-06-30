@@ -4,7 +4,6 @@ use core::{
     mem::transmute,
     task::{Poll, ready},
 };
-
 use futures_core::Stream;
 use pin_project_lite::pin_project;
 
@@ -14,6 +13,17 @@ pub struct StreamBuilder<C, I, T> {
     work: T,
     data: PhantomData<fn() -> (C, I)>,
 }
+
+impl<C, I, T: Clone> Clone for StreamBuilder<C, I, T> {
+    fn clone(&self) -> Self {
+        Self {
+            work: self.work.clone(),
+            data: PhantomData,
+        }
+    }
+}
+
+impl<C, I, T: Copy> Copy for StreamBuilder<C, I, T> {}
 
 impl<C, I, T> StreamBuilder<C, I, T> {
     pub fn new(task: T) -> StreamBuilder<C, I, T> {
@@ -48,7 +58,7 @@ where
         }
     }
 
-    fn split<L, R>(self, left: L, right: R) -> StreamBuilder<C, I, Split<T, L, R>>
+    pub fn split<L, R>(self, left: L, right: R) -> StreamBuilder<C, I, Split<T, L, R>>
     where
         T::Output: IntoEither,
         L: Work<C, <T::Output as IntoEither>::Left, Error = T::Error> + Clone,
@@ -61,7 +71,7 @@ where
         }
     }
 
-    fn map_err<F, E>(self, map: F) -> StreamBuilder<C, I, MapErr<T, F, E>>
+    pub fn map_err<F, E>(self, map: F) -> StreamBuilder<C, I, MapErr<T, F, E>>
     where
         Self: Sized,
         F: Fn(T::Error) -> E,
@@ -159,5 +169,9 @@ where
                 None => return Poll::Ready(None),
             }
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.stream.size_hint()
     }
 }
