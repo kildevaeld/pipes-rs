@@ -1,4 +1,6 @@
-use crate::{Work, map_err::MapErr, pipe::And, split::Split, then::Then, util::IntoEither};
+use crate::{
+    Middleware, Work, map_err::MapErr, pipe::And, split::Split, then::Then, util::IntoEither,
+};
 
 pub trait WorkExt<C, I>: Work<C, I> {
     fn pipe<T>(self, next: T) -> And<Self, T>
@@ -35,6 +37,14 @@ pub trait WorkExt<C, I>: Work<C, I> {
         T: Fn(Self::Error) -> E,
     {
         MapErr::new(self, map)
+    }
+
+    fn wrap<M>(self, middleware: M) -> M::Work
+    where
+        Self: Sized,
+        M: Middleware<C, I, Self>,
+    {
+        middleware.wrap(self)
     }
 }
 

@@ -11,7 +11,7 @@ bycat-fs = { path = "../bycat-fs" }
 bycat-img = { path = "../bycat-img" }
 bycat-source = { path = "../bycat-source", features = ["alloc"] }
 bycat-error = { path = "../bycat-error" }
-
+heather = { workspace = true, features = [] }
 
 tokio = { version = "1", features = ["full"] }
 bytes.workspace = true

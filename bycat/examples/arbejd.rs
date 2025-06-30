@@ -1,6 +1,30 @@
-use std::convert::Infallible;
+use std::{convert::Infallible, fmt::Display};
 
-use bycat::{Work, box_work, prelude::*, when, work_fn};
+use bycat::{BoxWork, Middleware, Work, box_work, middleware, prelude::*, when, work_fn};
+
+struct M;
+
+impl<C: Clone, B, H: Clone> Middleware<C, B, H> for M
+where
+    H: Work<C, B>,
+    H::Output: Display,
+    H: 'static,
+    B: 'static,
+    C: 'static,
+{
+    type Work = BoxWork<'static, C, B, String, H::Error>;
+
+    fn wrap(&self, handler: H) -> Self::Work {
+        box_work(work_fn(move |ctx: C, req| {
+            let handler = handler.clone();
+            async move {
+                let handler = handler.call(&ctx, req).await?;
+
+                Result::<_, H::Error>::Ok(format!("Middleare {}", handler))
+            }
+        }))
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -16,9 +40,11 @@ async fn main() {
     //     Result::<_, Infallible>::Ok(format!("Hello, {req}: {ctx}"))
     // });
 
-    let handler = test.pipe(work_fn(
-        |ctx, req| async move { Ok(format!("Hello {req}")) },
-    ));
+    let handler = test
+        .pipe(work_fn(
+            |ctx, req| async move { Ok(format!("Hello {req}")) },
+        ))
+        .wrap(M);
 
     let handler = box_work(handler);
 

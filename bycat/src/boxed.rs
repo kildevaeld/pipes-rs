@@ -1,3 +1,5 @@
+use crate::Middleware;
+
 use super::work::Work;
 use alloc::boxed::Box;
 use core::marker::PhantomData;
@@ -133,7 +135,7 @@ impl<'a, B, C, O, E> Clone for BoxWork<'a, B, C, O, E> {
 //     }
 // }
 
-// struct MiddlewareBox<'a, C, B, T>(T, PhantomData<&'a (B, C)>);
+// struct MiddlewareBox<'a, C, B, T>(T, PhantomData<fn() -> &'a (B, C)>);
 
 // impl<'a, B, C, T: Clone> Clone for MiddlewareBox<'a, B, C, T> {
 //     fn clone(&self) -> Self {
@@ -151,6 +153,7 @@ impl<'a, B, C, O, E> Clone for BoxWork<'a, B, C, O, E> {
 //     T::Work: 'a,
 //     B: HSend + 'a,
 //     C: HSendSync + 'a,
+//     H: 'a,
 // {
 //     type Work = BoxWork<'a, C, B, <T::Work as Work<C, B>>::Output, <T::Work as Work<C, B>>::Error>;
 

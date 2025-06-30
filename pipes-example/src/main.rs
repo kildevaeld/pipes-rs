@@ -15,7 +15,7 @@ use bycat_source::{Unit, pipe, prelude::*};
 async fn main() {
     let stream = pipe::<(),_>(vec![get("https://loppen.dk/sites/default/files/styles/wide-image/public/Ki%21%20foto%20fra%20Frontcover%20copy%20%281%29.jpg?itok=FoSCWMbQ")].pipe(HttpWork::default().into_package()));
 
-    stream
+    let stream = stream
         .pipe(bycat_img::load())
         .cloned(
             bycat_img::imageop(vec![
@@ -40,8 +40,10 @@ async fn main() {
                 }
             }
         }))
-        .pipe(FsDest::new("test"))
-        .unit()
-        .run(&())
-        .await;
+        .pipe(FsDest::new("test"));
+
+    // tokio::spawn(async move { stream.unit().run(&()).await })
+    //     .await
+    //     .unwrap();
+    stream.unit().run(&()).await
 }

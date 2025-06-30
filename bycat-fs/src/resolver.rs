@@ -8,7 +8,7 @@ use bycat::Matcher;
 use relative_path::RelativePathBuf;
 
 pub struct FileResolver {
-    patterns: Vec<Box<dyn Matcher<RelativePathBuf>>>,
+    patterns: Vec<Box<dyn Matcher<RelativePathBuf> + Send + Sync>>,
     root: PathBuf,
 }
 
@@ -22,7 +22,10 @@ impl FileResolver {
 }
 
 impl FileResolver {
-    pub fn pattern<M: Matcher<RelativePathBuf> + 'static>(mut self, pattern: M) -> Self {
+    pub fn pattern<M: Matcher<RelativePathBuf> + Send + Sync + 'static>(
+        mut self,
+        pattern: M,
+    ) -> Self {
         self.patterns.push(Box::new(pattern));
         self
     }

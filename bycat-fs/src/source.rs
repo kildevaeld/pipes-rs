@@ -5,7 +5,7 @@ use bycat::Matcher;
 use bycat_error::Error;
 use bycat_package::Package;
 use bycat_source::Source;
-use futures::{StreamExt, TryStreamExt, pin_mut, stream::BoxStream};
+use futures::{TryStreamExt, pin_mut};
 use heather::{HBoxStream, HSend};
 use relative_path::RelativePathBuf;
 
@@ -26,7 +26,7 @@ impl FsSource {
         }
     }
 
-    pub fn pattern<T: Matcher<RelativePathBuf> + 'static>(self, pattern: T) -> Self {
+    pub fn pattern<T: Matcher<RelativePathBuf> + Send + Sync + 'static>(self, pattern: T) -> Self {
         Self {
             root: self.root.pattern(pattern),
         }
