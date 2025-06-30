@@ -1,8 +1,9 @@
 use core::task::Poll;
+use std::println;
 
+use bycat::pipe::And;
 use futures::{ready, Future, TryStream};
 use pin_project_lite::pin_project;
-use bycat::pipe::And;
 
 use crate::Source;
 
@@ -78,7 +79,9 @@ where
         Poll::Ready(loop {
             match ready!(this.stream.as_mut().try_poll_next(cx)) {
                 None => break (),
-                _ => continue,
+                _ => {
+                    continue;
+                }
             }
         })
     }

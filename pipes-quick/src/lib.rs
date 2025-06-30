@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bindings::{JsPackage, Meta};
+use bycat_source::Source;
 use futures::future::BoxFuture;
 use klaver::RuntimeError;
 use bycat::{Work};
@@ -8,6 +9,7 @@ use bycat_package::{Bytes, Content, Package};
 use relative_path::RelativePathBuf;
 use rquickjs::{CatchResultExt, Class, Function, Module, Object};
 use rquickjs_util::async_iterator::JsAsyncIterator;
+use bycat_error::{BoxError, Error};
 
 mod bindings;
 
@@ -25,19 +27,19 @@ impl QuickWork {
 }
 
 impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
-    type Output = pipes_util::ReceiverStream<Package<Bytes>>;
+    type Output = bycat_source::channel::ReceiverStream<Package<Bytes>>;
 
-    type Error = RuntimeError;
+    type Error = Error;
 
     type Future<'a>
         = BoxFuture<'a, Result<Self::Output, Self::Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, ctx: C, path: RelativePathBuf) -> Self::Future<'a> {
+    fn call<'a>(&'a self, ctx: &'a C, path: RelativePathBuf) -> Self::Future<'a> {
         Box::pin(async move {
-            let vm = self.pool.get().await.map_err(pipes::Error::new)?;
-            let (sx, rx) = pipes_util::channel(1);
+            let vm = self.pool.get().await.map_err(Error::new)?;
+            let (sx, rx) =bycat_source::channel::channel(1);
             tokio::spawn(async move {
                 let sx_clone = sx.clone();
                 let ret= klaver::async_with!(vm => |ctx| {
@@ -66,7 +68,7 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
     
                     Ok(())
                 })
-                .await.map_err(pipes::Error::new);
+                .await.map_err(Error::new);
 
                 if let Err(err) = ret {
                     sx_clone.send(Err(err)).await.ok();
@@ -79,20 +81,20 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
 }
 
 
-impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Content + Send + 'static {
-    type Output = pipes_util::ReceiverStream<Package<Bytes>>;
+impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Content + Send + 'static, B::Error: Into<BoxError> {
+    type Output = bycat_source::channel::ReceiverStream<Package<Bytes>>;
 
-    type Error = RuntimeError;
+    type Error = Error;
 
     type Future<'a>
         = BoxFuture<'a, Result<Self::Output, Self::Error>>
     where
         Self: 'a;
 
-    fn call<'a>(&'a self, ctx: C, mut pkg: Package<B>) -> Self::Future<'a> {
+    fn call<'a>(&'a self, ctx: &'a C, mut pkg: Package<B>) -> Self::Future<'a> {
         Box::pin(async move {
-            let vm = self.pool.get().await.map_err(pipes::Error::new)?;
-            let (sx, rx) = pipes_util::channel(1);
+            let vm = self.pool.get().await.map_err(Error::new)?;
+            let (sx, rx) =bycat_source::channel::channel(1);
 
             if pkg.path().extension() != Some("ts") && pkg.path().extension() != Some("js") {
                 return Ok(rx.create_stream(ctx))
@@ -111,7 +113,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
                 let ret= klaver::async_with!(vm => |ctx| {
                     ctx.eval::<(), _>(include_str!("./init.js")).catch(&ctx)?;
 
-                    let content = pkg.content_mut().bytes().await.map_err(|err| RuntimeError::Custom(Box::new(err)))?;
+                    let content = pkg.content_mut().bytes().await.map_err(|err| RuntimeError::Custom(err.into()))?;
 
                     let (module, promise) = Module::declare(ctx.clone(), path.as_str(), content).catch(&ctx)?.eval().catch(&ctx)?;
 
@@ -138,7 +140,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
     
                     Ok(())
                 })
-                .await.map_err(pipes::Error::new);
+                .await.map_err(Error::new);
                 
                 if let Err(err) = ret {
                     sx_clone.send(Err(err)).await.ok();

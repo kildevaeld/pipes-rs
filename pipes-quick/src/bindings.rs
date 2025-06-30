@@ -67,7 +67,7 @@ impl<'js> JsPackage<'js> {
         let mime = if let Some(mime) = self.mime {
             Mime::from_str(mime.as_str()).unwrap()
         } else {
-            pipes_package::mime::APPLICATION_OCTET_STREAM
+            bycat_package::mime::APPLICATION_OCTET_STREAM
         };
 
         Ok(Package::new(self.name.as_str(), mime, body))

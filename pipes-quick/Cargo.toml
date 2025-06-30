@@ -6,6 +6,8 @@ edition = "2024"
 [dependencies]
 bycat = { path = "../bycat" }
 bycat-package = { path = "../bycat-package" }
+bycat-source = { path = "../bycat-source", features = ["channel"] }
+bycat-error = { path = "../bycat-error" }
 # bycat-util = { path = "../bycat-util" }
 
 rquickjs = { version = "0.8" }

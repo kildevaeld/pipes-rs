@@ -1512,7 +1512,9 @@ name = "pipes-quick"
 version = "0.1.0"
 dependencies = [
  "bycat",
+ "bycat-error",
  "bycat-package",
+ "bycat-source",
  "deadpool",
  "futures",
  "klaver",

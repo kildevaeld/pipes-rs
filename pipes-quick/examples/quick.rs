@@ -1,5 +1,7 @@
+use bycat::work_fn;
+use bycat_error::Error;
+use bycat_source::{Pipeline, SourceExt, Unit};
 use klaver::pool::VmPoolOptions;
-use pipes::{Pipeline, Unit, prelude::*};
 use pipes_quick::QuickWork;
 use relative_path::RelativePathBuf;
 
@@ -14,14 +16,14 @@ async fn main() {
             modules,
             worker_thread: false,
         })
-        .map_err(pipes::Error::new)
+        .map_err(Error::new)
         .unwrap(),
     )
     .build()
     .unwrap();
 
     Pipeline::<_, _, ()>::new_with(
-        vec![Result::<_, pipes::Error>::Ok(RelativePathBuf::from(
+        vec![Result::<_, Error>::Ok(RelativePathBuf::from(
             "./pipes-quick/examples/example.js",
         ))],
         QuickWork::new(pool.clone()),
@@ -33,7 +35,11 @@ async fn main() {
     //         .pipe(QuickWork::new(pool))
     //         .flatten(),
     // )
+    .then(work_fn(|ctx, ret| async move {
+        println!("Rrap");
+        bycat_error::Result::Ok(())
+    }))
     .unit()
-    .run(())
+    .run(&())
     .await;
 }
