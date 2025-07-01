@@ -8,7 +8,7 @@ use heather::{HSend, HSendSync};
 pub use self::{context::*, init::*, module::*};
 
 pub trait Backend: HSendSync {
-    type InitContext<'ctx>: HSendSync;
+    type InitContext<'ctx>;
     type BuildContext<'ctx>: BuildContext<'ctx>;
 }
 
@@ -30,8 +30,7 @@ where
 impl<'a, T: Backend> Builder<'a, T> {
     pub fn with<I>(mut self, init: I) -> Self
     where
-        I: Init<T> + HSendSync + 'a,
-        for<'b> I::Future<'b>: HSend,
+        I: Init<T> + 'a,
     {
         self.init.push(InitBox::new(init));
         self

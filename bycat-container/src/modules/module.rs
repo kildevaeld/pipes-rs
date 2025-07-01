@@ -1,18 +1,18 @@
 use crate::modules::BuildContext;
 use bycat_error::Error;
-use heather::{HBoxFuture, HSend, HSendSync};
+use futures_core::future::LocalBoxFuture;
 pub trait Module<'ctx, C: BuildContext<'ctx>> {
-    fn build<'a>(self, ctx: &'a mut C) -> impl Future<Output = Result<(), Error>> + HSend + 'a
+    fn build<'a>(self, ctx: &'a mut C) -> impl Future<Output = Result<(), Error>> + 'a
     where
         Self: 'a;
 }
 
 impl<'ctx, T, C> Module<'ctx, C> for T
 where
-    T: FnOnce(&mut C) -> Result<(), Error> + HSend,
-    C: BuildContext<'ctx> + HSendSync,
+    T: FnOnce(&mut C) -> Result<(), Error>,
+    C: BuildContext<'ctx>,
 {
-    fn build<'a>(self, ctx: &'a mut C) -> impl Future<Output = Result<(), Error>> + HSend + 'a
+    fn build<'a>(self, ctx: &'a mut C) -> impl Future<Output = Result<(), Error>> + 'a
     where
         Self: 'a,
     {
@@ -20,8 +20,8 @@ where
     }
 }
 
-pub trait DynModule<'ctx, C: BuildContext<'ctx>>: HSendSync {
-    fn build<'a>(self: Box<Self>, ctx: &'a mut C) -> HBoxFuture<'a, Result<(), Error>>
+pub trait DynModule<'ctx, C: BuildContext<'ctx>> {
+    fn build<'a>(self: Box<Self>, ctx: &'a mut C) -> LocalBoxFuture<'a, Result<(), Error>>
     where
         Self: 'a;
 }
@@ -33,8 +33,8 @@ pub struct ModuleBox<T>(T);
 impl<T> ModuleBox<T> {
     pub fn new<'a, C>(module: T) -> BoxModule<'a, C>
     where
-        C: BuildContext<'a> + HSendSync,
-        T: Module<'a, C> + HSendSync + 'a,
+        C: BuildContext<'a>,
+        T: Module<'a, C> + 'a,
     {
         Box::new(ModuleBox(module))
     }
@@ -42,10 +42,10 @@ impl<T> ModuleBox<T> {
 
 impl<'ctx, C, T> DynModule<'ctx, C> for ModuleBox<T>
 where
-    C: BuildContext<'ctx> + HSendSync,
-    T: Module<'ctx, C> + HSendSync,
+    C: BuildContext<'ctx>,
+    T: Module<'ctx, C>,
 {
-    fn build<'a>(self: Box<Self>, ctx: &'a mut C) -> HBoxFuture<'a, Result<(), Error>>
+    fn build<'a>(self: Box<Self>, ctx: &'a mut C) -> LocalBoxFuture<'a, Result<(), Error>>
     where
         Self: 'a,
     {
