@@ -1,4 +1,5 @@
 use crate::modules::Backend;
+use alloc::boxed::Box;
 use bycat_error::Error;
 use futures_core::future::LocalBoxFuture;
 

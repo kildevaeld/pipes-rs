@@ -2,6 +2,7 @@ mod context;
 mod init;
 mod module;
 
+use alloc::vec::Vec;
 use bycat_error::Error;
 use heather::{HSend, HSendSync};
 

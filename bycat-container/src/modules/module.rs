@@ -1,4 +1,5 @@
 use crate::modules::BuildContext;
+use alloc::boxed::Box;
 use bycat_error::Error;
 use futures_core::future::LocalBoxFuture;
 pub trait Module<'ctx, C: BuildContext<'ctx>> {
