@@ -330,6 +330,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bycat-quick"
+version = "0.1.0"
+dependencies = [
+ "bycat",
+ "bycat-container",
+ "bycat-error",
+ "bycat-trigger",
+ "klaver",
+ "rquickjs",
+ "tokio",
+]
+
+[[package]]
 name = "bycat-source"
 version = "0.1.0"
 dependencies = [

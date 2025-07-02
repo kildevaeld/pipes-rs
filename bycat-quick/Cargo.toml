@@ -1,0 +1,16 @@
+[package]
+name = "bycat-quick"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bycat = { path = "../bycat" }
+bycat-trigger = { path = "../bycat-trigger" }
+bycat-container = { path = "../bycat-container" }
+bycat-error = { path = "../bycat-error" }
+
+rquickjs = { version = "0.8" }
+klaver = { git = "https://github.com/fairy-render/klaver" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

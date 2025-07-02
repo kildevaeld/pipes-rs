@@ -14,7 +14,7 @@ members = [
   "bycat-package",
   "pipes-example",
   "bycat",
-  "bycat-error", "bycat-container", "bycat-trigger",
+  "bycat-error", "bycat-container", "bycat-trigger", "bycat-quick",
 ]
 
 

@@ -28,7 +28,7 @@ where
     }
 }
 
-pub trait DynInit<B: Backend> {
+pub trait DynInit<B: Backend>: Send + Sync {
     fn init<'ctx, 'a>(
         &'a mut self,
         ctx: &'a mut B::InitContext<'ctx>,
@@ -65,7 +65,7 @@ impl<T> InitBox<T> {
     pub fn new<'a, C>(module: T) -> Box<dyn DynInit<C> + 'a>
     where
         C: Backend,
-        T: Init<C> + 'a,
+        T: Init<C> + Send + Sync + 'a,
     {
         Box::new(InitBox(module))
     }
@@ -74,7 +74,7 @@ impl<T> InitBox<T> {
 impl<C, T> DynInit<C> for InitBox<T>
 where
     C: Backend,
-    T: Init<C>,
+    T: Init<C> + Send + Sync,
 {
     fn init<'ctx, 'a>(
         &'a mut self,
