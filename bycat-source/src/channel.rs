@@ -1,8 +1,7 @@
 use super::Source;
 use bycat_error::Error;
-use core::task::Poll;
 use flume::r#async::RecvStream;
-use futures::{ready, Stream};
+use futures::Stream;
 use pin_project_lite::pin_project;
 
 pub struct Sender<T> {
@@ -17,7 +16,7 @@ impl<T: Send + 'static> Sender<T> {
             .map_err(|_| Error::new("Channel closed"))
     }
 
-    pub async fn send(&self, payload: Result<T, Error>) -> Result<(), Error> {
+    pub fn send(&self, payload: Result<T, Error>) -> Result<(), Error> {
         self.sx
             .send(payload)
             .map_err(|_| Error::new("Channel closed"))
@@ -86,6 +85,6 @@ impl<T> Stream for ReceiverStream<T> {
         cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Option<Self::Item>> {
         let this = self.project();
-        Poll::Ready(ready!(this.rx.poll_next(cx)))
+        this.rx.poll_next(cx)
     }
 }

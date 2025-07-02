@@ -1,10 +1,14 @@
 #[cfg(feature = "alloc")]
 use crate::cloned::AsyncCloned;
-use crate::{Pipeline, SourceUnit};
+use crate::{concurrent::Concurrent, Pipeline, SourceUnit};
 use bycat::{pipe::And, then::Then, IntoResult, ResultIter, Work};
 use core::{mem::transmute, task::Poll};
 use either::Either;
-use futures::{ready, stream::TryFlatten, Stream, TryFuture, TryStream, TryStreamExt};
+use futures::{
+    ready,
+    stream::{TryFlatten, TryFlattenUnordered},
+    Stream, TryFuture, TryStream, TryStreamExt,
+};
 use pin_project_lite::pin_project;
 
 pub trait Source<C> {
@@ -102,6 +106,17 @@ pub trait SourceExt<C>: Source<C> {
         Flatten { source: self }
     }
 
+    fn flatten_unordered(self, limit: impl Into<Option<usize>>) -> FlattenUnordered<Self>
+    where
+        Self: Sized,
+        Self::Item: TryStream<Error = Self::Error>,
+    {
+        FlattenUnordered {
+            source: self,
+            limit: limit.into(),
+        }
+    }
+
     #[cfg(feature = "alloc")]
     fn cloned<T1, T2>(self, work1: T1, work2: T2) -> AsyncCloned<Self, T1, T2>
     where
@@ -123,6 +138,14 @@ pub trait SourceExt<C>: Source<C> {
         Self: Sized,
     {
         SourceUnit::new(self)
+    }
+
+    fn concurrent<W>(self, work: W) -> Concurrent<Self, W>
+    where
+        Self: Sized,
+        W: Work<C, Self::Item>,
+    {
+        Concurrent::new(self, work)
     }
 }
 
@@ -301,6 +324,34 @@ where
 
     fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
         self.source.create_stream(ctx).try_flatten()
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct FlattenUnordered<S> {
+    source: S,
+    limit: Option<usize>,
+}
+
+impl<S, C> Source<C> for FlattenUnordered<S>
+where
+    S: Source<C>,
+    S::Item: TryStream<Error = S::Error> + Unpin,
+{
+    type Item = <S::Item as TryStream>::Ok;
+
+    type Error = <S::Item as TryStream>::Error;
+
+    type Stream<'a>
+        = TryFlattenUnordered<S::Stream<'a>>
+    where
+        S: 'a,
+        C: 'a;
+
+    fn create_stream<'a>(self, ctx: &'a C) -> Self::Stream<'a> {
+        self.source
+            .create_stream(ctx)
+            .try_flatten_unordered(self.limit)
     }
 }
 

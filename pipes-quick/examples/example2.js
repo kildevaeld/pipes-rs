@@ -7,8 +7,8 @@ export default async function *() {
 
   let i = 0;
   while (i++  < 10) {
-    await sleep(i*100);
-    console.log('Hello',i);
+    await sleep(100);
+    console.log('Moyn',i);
     yield i
   }
 }

@@ -1,6 +1,6 @@
 use bycat::work_fn;
 use bycat_error::Error;
-use bycat_source::{Pipeline, SourceExt, Unit};
+use bycat_source::{Pipeline, SourceExt, Unit, pipe};
 use klaver::pool::VmPoolOptions;
 use pipes_quick::QuickWork;
 use relative_path::RelativePathBuf;
@@ -22,23 +22,21 @@ async fn main() {
     .build()
     .unwrap();
 
-    Pipeline::<_, _, ()>::new_with(
-        vec![Result::<_, Error>::Ok(RelativePathBuf::from(
-            "./pipes-quick/examples/example.js",
-        ))],
-        QuickWork::new(pool.clone()),
-    )
-    .flatten()
+    pipe(vec![
+        Result::<_, Error>::Ok(RelativePathBuf::from("./pipes-quick/examples/example.js")),
+        Result::<_, Error>::Ok(RelativePathBuf::from("./pipes-quick/examples/example2.js")),
+    ])
+    .pipe(QuickWork::new(pool.clone()))
+    .flatten_unordered(4)
     // .and(
     //     pipes_fs::FsSource::new(".".into())
     //         .pattern("./pipes-quick/examples/*.js")
     //         .pipe(QuickWork::new(pool))
     //         .flatten(),
     // )
-    .then(work_fn(|ctx, ret| async move {
-        println!("Rrap");
-        bycat_error::Result::Ok(())
-    }))
+    // .concurrent(work_fn(
+    //     |ctx, ret| async move { bycat_error::Result::Ok(()) },
+    // ))
     .unit()
     .run(&())
     .await;

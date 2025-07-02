@@ -21,7 +21,7 @@ flume = { version = "0.11", features = [
   "async",
 ], default-features = false, optional = true }
 
-heather = { workspace = true, features = [] }
+heather = { workspace = true, features = ["send"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

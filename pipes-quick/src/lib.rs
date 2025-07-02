@@ -61,7 +61,7 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
     
                     while let Some(next) = ret.next().await.catch(&ctx)? {
                         let pkg = next.into_package(&ctx).await?;
-                        if sx.send(Ok(pkg)).await.is_err() {
+                        if sx.send_async(Ok(pkg)).await.is_err() {
                             break;
                         }
                     }
@@ -71,7 +71,7 @@ impl<C: Send + Sync + 'static> Work<C, RelativePathBuf> for QuickWork {
                 .await.map_err(Error::new);
 
                 if let Err(err) = ret {
-                    sx_clone.send(Err(err)).await.ok();
+                    sx_clone.send_async(Err(err)).await.ok();
                 }
             });
             
@@ -133,7 +133,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
                     let ret = runner.call::<_, JsAsyncIterator<JsPackage>>((path.as_str(),)).catch(&ctx)?;
                     while let Some(next) = ret.next().await.catch(&ctx)? {
                         let pkg = next.into_package(&ctx).await?;
-                        if sx.send(Ok(pkg)).await.is_err() {
+                        if sx.send_async(Ok(pkg)).await.is_err() {
                             break;
                         }
                     }
@@ -143,7 +143,7 @@ impl<C: Send + Sync + 'static, B> Work<C, Package<B>> for QuickWork where B: Con
                 .await.map_err(Error::new);
                 
                 if let Err(err) = ret {
-                    sx_clone.send(Err(err)).await.ok();
+                    sx_clone.send_async(Err(err)).await.ok();
                 }
             });
             

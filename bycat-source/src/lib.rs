@@ -12,6 +12,7 @@ mod cloned;
 // mod error;
 #[cfg(feature = "channel")]
 pub mod channel;
+mod concurrent;
 mod pipeline;
 mod source;
 mod then;
