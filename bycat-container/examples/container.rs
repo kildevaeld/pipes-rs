@@ -1,6 +1,7 @@
 use bycat::{BoxWork, Work, box_work, work_fn};
 use bycat_container::modules::{Backend, BoxModule, BuildContext, Builder, InitContext, ModuleBox};
 use bycat_error::{Error, Result};
+use heather::{HSend, HSendSync};
 use std::collections::BTreeMap;
 
 pub struct Test;
@@ -22,7 +23,8 @@ impl<'ctx> BuildContext<'ctx> for TestBuildContext<'ctx> {
 impl<'ctx> TestBuildContext<'ctx> {
     pub fn add_handler<T>(&mut self, name: impl Into<String>, handler: T)
     where
-        for<'c> T: Work<TestRunContext, i32, Output = i32, Error = Error> + 'c,
+        for<'c> T: Work<TestRunContext, i32, Output = i32, Error = Error> + HSendSync + 'c,
+        for<'c> T::Future<'c>: HSend + 'c,
     {
         self.handlers.insert(name.into(), box_work(handler));
     }

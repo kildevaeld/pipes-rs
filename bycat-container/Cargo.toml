@@ -5,11 +5,14 @@ edition = "2024"
 
 [features]
 send = ["heather/send"]
-# default = ["send"]
+default = ["send"]
 
 [dependencies]
 bycat-error = { path = "../bycat-error" }
 heather = { workspace = true, features = ["alloc"] }
+futures-core = { version = "0.3", default-features = false, features = [
+    "alloc",
+] }
 
 [dev-dependencies]
 bycat = { path = "../bycat", features = ["alloc"] }

@@ -1,6 +1,6 @@
-use bycat_error::Error;
-
 use crate::modules::Backend;
+use bycat_error::Error;
+use futures_core::future::LocalBoxFuture;
 
 pub trait Init<B: Backend> {
     type Future<'a>: Future<Output = Result<(), Error>>
@@ -27,13 +27,11 @@ where
     }
 }
 
-use heather::{HBoxFuture, HSend, HSendSync};
-
-pub trait DynInit<B: Backend>: HSendSync {
+pub trait DynInit<B: Backend> {
     fn init<'ctx, 'a>(
         &'a mut self,
         ctx: &'a mut B::InitContext<'ctx>,
-    ) -> HBoxFuture<'a, Result<(), Error>>
+    ) -> LocalBoxFuture<'a, Result<(), Error>>
     where
         Self: 'a;
 }
@@ -65,9 +63,8 @@ pub struct InitBox<T>(T);
 impl<T> InitBox<T> {
     pub fn new<'a, C>(module: T) -> Box<dyn DynInit<C> + 'a>
     where
-        C: Backend + HSend,
-        T: Init<C> + HSendSync + 'a,
-        for<'b> T::Future<'b>: HSend,
+        C: Backend,
+        T: Init<C> + 'a,
     {
         Box::new(InitBox(module))
     }
@@ -75,14 +72,13 @@ impl<T> InitBox<T> {
 
 impl<C, T> DynInit<C> for InitBox<T>
 where
-    C: Backend + HSend,
-    T: Init<C> + HSendSync,
-    for<'a> T::Future<'a>: HSend,
+    C: Backend,
+    T: Init<C>,
 {
     fn init<'ctx, 'a>(
         &'a mut self,
         ctx: &'a mut <C as Backend>::InitContext<'ctx>,
-    ) -> HBoxFuture<'a, Result<(), Error>>
+    ) -> LocalBoxFuture<'a, Result<(), Error>>
     where
         Self: 'a,
     {

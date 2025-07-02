@@ -242,6 +242,7 @@ dependencies = [
  "bycat",
  "bycat-error",
  "futures",
+ "futures-core",
  "heather",
 ]
 
