@@ -1,4 +1,4 @@
-use bycat_container::modules::{BoxModule, BuildContext, Builder, InitContext, ModuleBox};
+use bycat_container::modules::{BoxModule, BuildContext, InitContext, ModuleBox};
 use rquickjs::Ctx;
 
 use crate::backend::Quick;

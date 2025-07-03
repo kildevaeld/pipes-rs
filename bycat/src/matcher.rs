@@ -1,6 +1,5 @@
 #[cfg(feature = "alloc")]
 use alloc::{boxed::Box, string::String};
-use heather::HSendSync;
 
 pub trait Matcher<T> {
     fn is_match(&self, path: &T) -> bool;

@@ -1,5 +1,3 @@
-use crate::Middleware;
-
 use super::work::Work;
 use alloc::boxed::Box;
 use core::marker::PhantomData;

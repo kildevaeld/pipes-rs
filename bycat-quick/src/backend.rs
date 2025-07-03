@@ -1,11 +1,7 @@
+use crate::context::{JsBuilderContext, JsInitContext};
 use bycat_container::modules::{Backend, Builder, Init};
 use bycat_error::Error;
 use klaver::{RuntimeError, Vm};
-
-use crate::{
-    JsContext,
-    context::{JsBuilderContext, JsInitContext},
-};
 
 #[derive(Default)]
 pub struct Quick {

@@ -4,7 +4,7 @@ mod module;
 
 use alloc::vec::Vec;
 use bycat_error::Error;
-use heather::{HSend, HSendSync};
+use heather::HSend;
 
 pub use self::{context::*, init::*, module::*};
 
